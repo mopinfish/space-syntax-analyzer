@@ -1,0 +1,8 @@
+include README.md
+include LICENSE
+include CHANGELOG.md
+recursive-include space_syntax_analyzer *.py
+recursive-include tests *.py
+recursive-include examples *.py
+recursive-include docs *.rst *.py *.md
+prune docs/_build
