@@ -1,279 +1,454 @@
 """
-メインの分析クラス - SpaceSyntaxAnalyzer
+Space Syntax分析器 (OSMnx v2.0対応版)
 
-このモジュールは、スペースシンタックス分析の統合インターフェースを提供します。
+このモジュールは道路ネットワークのSpace Syntax分析を実行します。
 """
 
-from __future__ import annotations
-
+import logging
 from typing import Any
 
 import networkx as nx
 import pandas as pd
-from shapely.geometry import Polygon
 
 from .metrics import SpaceSyntaxMetrics
 from .network import NetworkManager
 from .visualization import NetworkVisualizer
 
+logger = logging.getLogger(__name__)
+
 
 class SpaceSyntaxAnalyzer:
-    """
-    スペースシンタックス分析を行うメインクラス
+    """Space Syntax分析メインクラス (OSMnx v2.0対応)"""
 
-    このクラスは、道路ネットワークの取得から分析、可視化まで
-    一連の処理を統合的に行います。
-    """
-
-    def __init__(
-        self,
-        width_threshold: float = 4.0,
-        network_type: str = "drive",
-        crs: str = "EPSG:4326",
-    ) -> None:
+    def __init__(self, network_type: str = "drive", width_threshold: float = 6.0):
         """
-        SpaceSyntaxAnalyzerを初期化
+        Space Syntax分析器を初期化
 
         Args:
-            width_threshold: 道路幅員の閾値（メートル）。この値以上を主要道路とする
-            network_type: OSMnxのネットワークタイプ（'drive', 'walk', 'bike'）
-            crs: 座標参照系
+            network_type: ネットワークタイプ ("drive", "walk", "bike", "all", "all_public")
+            width_threshold: 主要道路判定の幅閾値（メートル）
         """
-        self.width_threshold = width_threshold
         self.network_type = network_type
-        self.crs = crs
+        self.width_threshold = width_threshold
 
-        self.network_manager = NetworkManager(
-            width_threshold=width_threshold, network_type=network_type, crs=crs
-        )
-        self.metrics_calculator = SpaceSyntaxMetrics()
+        # コンポーネントの初期化
+        self.network_manager = NetworkManager(network_type, width_threshold)
+        self.metrics = SpaceSyntaxMetrics()
         self.visualizer = NetworkVisualizer()
 
-    def get_network(
-        self,
-        location: str | tuple[float, float, float, float] | Polygon,
-        network_filter: str = "all",
-    ) -> tuple[nx.MultiDiGraph, nx.MultiDiGraph]:
+        logger.info(f"SpaceSyntaxAnalyzer初期化完了: {network_type}, {width_threshold}m")
+
+    def analyze_place(self, place_query: str | tuple[float, float, float, float],
+                     return_networks: bool = False) -> dict[str, Any] | tuple[dict[str, Any], tuple[nx.MultiDiGraph | None, nx.MultiDiGraph | None]]:
         """
-        指定された場所の道路ネットワークを取得
+        地域のSpace Syntax分析を実行
 
         Args:
-            location: 場所の指定（地名、bbox座標、ポリゴン）
-            network_filter: ネットワークフィルター（'major', 'all', 'both'）
+            place_query: 地名または(left, bottom, right, top)のbbox
+            return_networks: ネットワークオブジェクトも返すかどうか
 
         Returns:
-            Tuple[主要道路ネットワーク, 全道路ネットワーク]
+            分析結果辞書、return_networks=Trueの場合は(結果, (主要ネットワーク, 全ネットワーク))
         """
-        return self.network_manager.get_network(location, network_filter)
+        try:
+            logger.info(f"分析開始: {place_query}")
 
-    def analyze(
-        self,
-        major_network: nx.MultiDiGraph,
-        full_network: nx.MultiDiGraph | None = None,
-        area_ha: float | None = None,
-    ) -> dict[str, Any]:
+            # ネットワーク取得
+            major_net, full_net = self._get_networks(place_query)
+
+            if major_net is None and full_net is None:
+                logger.error("ネットワーク取得に完全に失敗しました")
+                return self._create_empty_result(return_networks, "ネットワーク取得失敗")
+
+            # 分析実行
+            results = {}
+
+            # 主要道路ネットワーク分析
+            if major_net is not None:
+                logger.info("主要道路ネットワーク分析中...")
+                results['major_network'] = self._analyze_network(major_net, "主要道路")
+            else:
+                results['major_network'] = None
+
+            # 全道路ネットワーク分析
+            if full_net is not None:
+                logger.info("全道路ネットワーク分析中...")
+                results['full_network'] = self._analyze_network(full_net, "全道路")
+            else:
+                results['full_network'] = None
+
+            # メタデータ追加
+            results['metadata'] = {
+                'query': str(place_query),
+                'network_type': self.network_type,
+                'width_threshold': self.width_threshold,
+                'has_major_network': major_net is not None,
+                'has_full_network': full_net is not None,
+                'analysis_status': 'success'
+            }
+
+            logger.info("分析完了")
+
+            if return_networks:
+                return results, (major_net, full_net)
+            else:
+                return results
+
+        except Exception as e:
+            logger.error(f"分析中にエラー発生: {e}")
+            return self._create_empty_result(return_networks, str(e))
+
+    def _get_networks(self, place_query: str | tuple[float, float, float, float]) -> tuple[nx.MultiDiGraph | None, nx.MultiDiGraph | None]:
         """
-        スペースシンタックス分析を実行
+        主要道路と全道路のネットワークを取得
 
         Args:
-            major_network: 主要道路ネットワーク
-            full_network: 全道路ネットワーク（オプション）
-            area_ha: 分析対象エリアの面積（ヘクタール）
+            place_query: 地名またはbbox
+
+        Returns:
+            (主要道路ネットワーク, 全道路ネットワーク)
+        """
+        try:
+            base_net = None
+
+            # クエリの種類に応じて取得方法を変える
+            if isinstance(place_query, str):
+                logger.info(f"地名 '{place_query}' からネットワーク取得")
+                base_net = self.network_manager.get_network_from_place(place_query, simplify=False)
+
+            elif isinstance(place_query, tuple | list) and len(place_query) == 4:
+                logger.info(f"bbox {place_query} からネットワーク取得")
+                base_net = self.network_manager.get_network_from_bbox(place_query, simplify=False)
+
+            else:
+                logger.error(f"不正なクエリ形式: {place_query}")
+                return None, None
+
+            if base_net is None:
+                logger.error("ベースネットワーク取得に失敗")
+                return None, None
+
+            # 全道路ネットワーク（コピー）
+            full_net = base_net.copy()
+
+            # 主要道路ネットワーク（フィルタリング）
+            major_net = self.network_manager.filter_major_roads(base_net.copy())
+
+            logger.info(f"ネットワーク取得完了 - 主要: {len(major_net.nodes) if major_net else 0} ノード, "
+                       f"全体: {len(full_net.nodes) if full_net else 0} ノード")
+
+            return major_net, full_net
+
+        except Exception as e:
+            logger.error(f"ネットワーク取得エラー: {e}")
+            return None, None
+
+    def _analyze_network(self, G: nx.MultiDiGraph, network_name: str) -> dict[str, Any]:
+        """
+        個別ネットワークの分析を実行
+
+        Args:
+            G: 分析対象のネットワーク
+            network_name: ネットワーク名
 
         Returns:
             分析結果辞書
         """
-        results = {
-            "major_network": self.metrics_calculator.calculate_all_metrics(
-                major_network, area_ha
-            )
+        try:
+            results = {
+                'network_name': network_name,
+                'analysis_status': 'success'
+            }
+
+            # 基本統計
+            basic_stats = self.network_manager.calculate_network_stats(G)
+            results.update(basic_stats)
+
+            # Space Syntax指標
+            if len(G.nodes) > 0:
+                syntax_metrics = self.metrics.calculate_all_metrics(G)
+                results.update(syntax_metrics)
+            else:
+                logger.warning(f"{network_name}: ノードが0のため、Space Syntax指標をスキップ")
+                results.update(self._get_empty_metrics())
+
+            logger.info(f"{network_name} 分析完了: {results.get('node_count', 0)} ノード")
+            return results
+
+        except Exception as e:
+            logger.error(f"ネットワーク分析エラー ({network_name}): {e}")
+            return {
+                'network_name': network_name,
+                'analysis_status': 'error',
+                'error_message': str(e),
+                **self._get_empty_metrics()
+            }
+
+    def _get_empty_metrics(self) -> dict[str, float]:
+        """空の指標辞書を返す"""
+        return {
+            'node_count': 0,
+            'edge_count': 0,
+            'avg_degree': 0.0,
+            'max_degree': 0,
+            'min_degree': 0,
+            'density': 0.0,
+            'alpha_index': 0.0,
+            'beta_index': 0.0,
+            'gamma_index': 0.0,
+            'avg_circuity': 1.0,
+            'road_density': 0.0
         }
 
-        if full_network is not None:
-            results["full_network"] = self.metrics_calculator.calculate_all_metrics(
-                full_network, area_ha
-            )
-
-        return results
-
-    def analyze_place(
-        self,
-        location: str | tuple[float, float, float, float] | Polygon,
-        return_networks: bool = False,
-    ) -> (
-        dict[str, Any] | tuple[dict[str, Any], tuple[nx.MultiDiGraph, nx.MultiDiGraph]]
-    ):
+    def _create_empty_result(self, return_networks: bool,
+                           error_msg: str) -> dict[str, Any] | tuple[dict[str, Any], tuple[None, None]]:
         """
-        場所を指定してワンステップで分析を実行
+        空の分析結果を作成
 
         Args:
-            location: 分析対象の場所
             return_networks: ネットワークも返すかどうか
+            error_msg: エラーメッセージ
 
         Returns:
-            分析結果、または分析結果とネットワークのタプル
+            空の結果
         """
-        # ネットワーク取得
-        major_network, full_network = self.get_network(location, "both")
-
-        # 面積計算
-        area_ha = self.network_manager.calculate_area_ha(major_network)
-
-        # 分析実行
-        results = self.analyze(major_network, full_network, area_ha)
+        empty_result = {
+            'major_network': None,
+            'full_network': None,
+            'metadata': {
+                'analysis_status': 'failed',
+                'error_message': error_msg,
+                'network_type': self.network_type,
+                'width_threshold': self.width_threshold
+            }
+        }
 
         if return_networks:
-            return results, (major_network, full_network)
-        return results
+            return empty_result, (None, None)
+        else:
+            return empty_result
 
-    def visualize(
-        self,
-        major_network: nx.MultiDiGraph,
-        full_network: nx.MultiDiGraph | None = None,
-        results: dict[str, Any] | None = None,
-        save_path: str | None = None,
-    ) -> None:
+    def get_network(self, place_query: str | tuple,
+                   network_selection: str = "both") -> nx.MultiDiGraph | tuple[nx.MultiDiGraph, nx.MultiDiGraph] | None:
         """
-        ネットワークと分析結果を可視化
+        ネットワークのみを取得（分析なし）
 
         Args:
-            major_network: 主要道路ネットワーク
-            full_network: 全道路ネットワーク（オプション）
-            results: 分析結果（オプション）
-            save_path: 保存パス（オプション）
-        """
-        self.visualizer.plot_network_comparison(
-            major_network, full_network, results, save_path
-        )
+            place_query: 地名またはbbox
+            network_selection: "major", "full", "both"
 
-    def export_results(
-        self, results: dict[str, Any], output_path: str, format_type: str = "csv"
-    ) -> None:
+        Returns:
+            選択されたネットワーク
+        """
+        try:
+            major_net, full_net = self._get_networks(place_query)
+
+            if network_selection == "major":
+                return major_net
+            elif network_selection == "full":
+                return full_net
+            elif network_selection == "both":
+                return major_net, full_net
+            else:
+                logger.error(f"不正なnetwork_selection: {network_selection}")
+                return None
+
+        except Exception as e:
+            logger.error(f"ネットワーク取得エラー: {e}")
+            if network_selection == "both":
+                return None, None
+            else:
+                return None
+
+    def generate_report(self, results: dict[str, Any], title: str = "Space Syntax 分析レポート") -> str:
+        """
+        分析結果の詳細レポートを生成
+
+        Args:
+            results: 分析結果
+            title: レポートタイトル
+
+        Returns:
+            フォーマットされたレポート文字列
+        """
+        try:
+            lines = [
+                f"\n{'='*60}",
+                f"  {title}",
+                f"{'='*60}",
+                ""
+            ]
+
+            # メタデータセクション
+            if 'metadata' in results:
+                metadata = results['metadata']
+                lines.extend([
+                    "【基本情報】",
+                    f"  クエリ: {metadata.get('query', 'N/A')}",
+                    f"  ネットワークタイプ: {metadata.get('network_type', 'N/A')}",
+                    f"  主要道路幅閾値: {metadata.get('width_threshold', 'N/A')}m",
+                    f"  分析ステータス: {metadata.get('analysis_status', 'N/A')}",
+                    ""
+                ])
+
+            # 主要道路ネットワーク
+            if results.get('major_network'):
+                major = results['major_network']
+                lines.extend(self._format_network_section("主要道路ネットワーク", major))
+
+            # 全道路ネットワーク
+            if results.get('full_network'):
+                full = results['full_network']
+                lines.extend(self._format_network_section("全道路ネットワーク", full))
+
+            # 比較セクション
+            if results.get('major_network') and results.get('full_network'):
+                lines.extend(self._format_comparison_section(results['major_network'], results['full_network']))
+
+            lines.extend([
+                "="*60,
+                f"レポート生成完了 - {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}",
+                ""
+            ])
+
+            return "\n".join(lines)
+
+        except Exception as e:
+            logger.error(f"レポート生成エラー: {e}")
+            return f"レポート生成エラー: {e}"
+
+    def _format_network_section(self, section_title: str, network_data: dict[str, Any]) -> list[str]:
+        """ネットワークセクションをフォーマット"""
+        lines = [
+            f"【{section_title}】",
+            f"  ノード数: {network_data.get('node_count', 0):,}",
+            f"  エッジ数: {network_data.get('edge_count', 0):,}",
+            f"  平均次数: {network_data.get('avg_degree', 0):.2f}",
+            f"  ネットワーク密度: {network_data.get('density', 0):.4f}",
+            "",
+            "  Space Syntax指標:",
+            f"    α指数: {network_data.get('alpha_index', 0):.1f}%",
+            f"    β指数: {network_data.get('beta_index', 0):.2f}",
+            f"    γ指数: {network_data.get('gamma_index', 0):.2f}",
+            f"    平均迂回率: {network_data.get('avg_circuity', 1):.2f}",
+            f"    道路密度: {network_data.get('road_density', 0):.1f}",
+            ""
+        ]
+        return lines
+
+    def _format_comparison_section(self, major: dict[str, Any], full: dict[str, Any]) -> list[str]:
+        """比較セクションをフォーマット"""
+        major_nodes = major.get('node_count', 0)
+        full_nodes = full.get('node_count', 0)
+        major_edges = major.get('edge_count', 0)
+        full_edges = full.get('edge_count', 0)
+
+        node_ratio = (major_nodes / full_nodes * 100) if full_nodes > 0 else 0
+        edge_ratio = (major_edges / full_edges * 100) if full_edges > 0 else 0
+
+        lines = [
+            "【ネットワーク比較】",
+            f"  主要道路ノード比率: {node_ratio:.1f}% ({major_nodes:,} / {full_nodes:,})",
+            f"  主要道路エッジ比率: {edge_ratio:.1f}% ({major_edges:,} / {full_edges:,})",
+            f"  主要道路平均次数: {major.get('avg_degree', 0):.2f}",
+            f"  全道路平均次数: {full.get('avg_degree', 0):.2f}",
+            ""
+        ]
+        return lines
+
+    def export_results(self, results: dict[str, Any], filepath: str,
+                      format_type: str = "csv") -> bool:
         """
         分析結果をファイルに出力
 
         Args:
             results: 分析結果
-            output_path: 出力パス
-            format_type: 出力形式（'csv', 'excel', 'json'）
-        """
-        if format_type.lower() == "csv":
-            self._export_to_csv(results, output_path)
-        elif format_type.lower() == "excel":
-            self._export_to_excel(results, output_path)
-        elif format_type.lower() == "json":
-            self._export_to_json(results, output_path)
-        else:
-            raise ValueError(f"Unsupported format: {format_type}")
-
-    def _export_to_csv(self, results: dict[str, Any], output_path: str) -> None:
-        """CSV形式でエクスポート"""
-        df_list = []
-
-        for network_type, metrics in results.items():
-            row = {"network_type": network_type}
-            row.update(metrics)
-            df_list.append(row)
-
-        df = pd.DataFrame(df_list)
-        df.to_csv(output_path, index=False, encoding="utf-8-sig")
-
-    def _export_to_excel(self, results: dict[str, Any], output_path: str) -> None:
-        """Excel形式でエクスポート"""
-        with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
-            for network_type, metrics in results.items():
-                df = pd.DataFrame([metrics])
-                df.to_excel(writer, sheet_name=network_type, index=False)
-
-    def _export_to_json(self, results: dict[str, Any], output_path: str) -> None:
-        """JSON形式でエクスポート"""
-        import json
-
-        with open(output_path, 'w', encoding='utf-8') as f:
-            json.dump(results, f, ensure_ascii=False, indent=2)
-
-    def generate_report(
-        self, results: dict[str, Any], location_name: str = "分析対象地域"
-    ) -> str:
-        """
-        分析結果のレポートを生成
-
-        Args:
-            results: 分析結果
-            location_name: 地域名
+            filepath: 出力先パス
+            format_type: ファイル形式 ("csv", "excel", "json")
 
         Returns:
-            分析レポート（文字列）
+            出力成功時True
         """
-        report = f"# {location_name} スペースシンタックス分析レポート\n\n"
+        try:
+            logger.info(f"結果出力開始: {filepath} ({format_type})")
 
-        for network_type, metrics in results.items():
-            network_name = (
-                "主要道路ネットワーク"
-                if network_type == "major_network"
-                else "全道路ネットワーク"
-            )
-            report += f"## {network_name}\n\n"
+            if format_type.lower() == "csv":
+                df = self._results_to_dataframe(results)
+                df.to_csv(filepath, index=False, encoding='utf-8-sig')
 
-            # 基本統計
-            report += "### 基本統計\n"
-            report += f"- ノード数: {metrics.get('nodes', 'N/A')}\n"
-            report += f"- エッジ数: {metrics.get('edges', 'N/A')}\n"
+            elif format_type.lower() in ["excel", "xlsx"]:
+                df = self._results_to_dataframe(results)
+                df.to_excel(filepath, index=False)
 
-            # total_length_m の安全な処理（修正箇所）
-            total_length = metrics.get('total_length_m', 'N/A')
-            if isinstance(total_length, int | float) and total_length != 'N/A':
-                report += f"- 道路総延長: {total_length:.1f}m\n\n"
+            elif format_type.lower() == "json":
+                import json
+                with open(filepath, 'w', encoding='utf-8') as f:
+                    json.dump(results, f, ensure_ascii=False, indent=2, default=str)
+
             else:
-                report += f"- 道路総延長: {total_length}\n\n"
+                raise ValueError(f"サポートされていないフォーマット: {format_type}")
 
-            # 回遊性指標
-            report += "### 回遊性指標\n"
-            report += f"- 回路指数（μ）: {metrics.get('mu_index', 'N/A')}\n"
-            alpha_index = metrics.get('alpha_index', 'N/A')
-            if isinstance(alpha_index, int | float):
-                report += f"- α指数: {alpha_index:.1f}%\n"
-            else:
-                report += f"- α指数: {alpha_index}\n"
+            logger.info(f"結果出力完了: {filepath}")
+            return True
 
-            beta_index = metrics.get('beta_index', 'N/A')
-            if isinstance(beta_index, int | float):
-                report += f"- β指数: {beta_index:.2f}\n"
-            else:
-                report += f"- β指数: {beta_index}\n"
+        except Exception as e:
+            logger.error(f"結果出力エラー: {e}")
+            return False
 
-            gamma_index = metrics.get('gamma_index', 'N/A')
-            if isinstance(gamma_index, int | float):
-                report += f"- γ指数: {gamma_index:.1f}%\n\n"
-            else:
-                report += f"- γ指数: {gamma_index}\n\n"
+    def _results_to_dataframe(self, results: dict[str, Any]) -> pd.DataFrame:
+        """分析結果をDataFrameに変換"""
+        data = []
 
-            # アクセス性指標
-            report += "### アクセス性指標\n"
-            avg_shortest_path = metrics.get('avg_shortest_path', 'N/A')
-            if isinstance(avg_shortest_path, int | float):
-                report += f"- 平均最短距離（Di）: {avg_shortest_path:.1f}m\n"
-            else:
-                report += f"- 平均最短距離（Di）: {avg_shortest_path}\n"
+        for network_type in ['major_network', 'full_network']:
+            if results.get(network_type):
+                row = {
+                    'network_type': network_type,
+                    **results[network_type]
+                }
+                data.append(row)
 
-            road_density = metrics.get('road_density', 'N/A')
-            if isinstance(road_density, int | float):
-                report += f"- 道路密度（Dl）: {road_density:.1f}m/ha\n"
-            else:
-                report += f"- 道路密度（Dl）: {road_density}\n"
+        return pd.DataFrame(data)
 
-            intersection_density = metrics.get('intersection_density', 'N/A')
-            if isinstance(intersection_density, int | float):
-                report += f"- 交差点密度（Dc）: {intersection_density:.1f}n/ha\n\n"
-            else:
-                report += f"- 交差点密度（Dc）: {intersection_density}\n\n"
 
-            # 迂回性指標
-            report += "### 迂回性指標\n"
-            avg_circuity = metrics.get('avg_circuity', 'N/A')
-            if isinstance(avg_circuity, int | float):
-                report += f"- 平均迂回率（A）: {avg_circuity:.2f}\n\n"
-            else:
-                report += f"- 平均迂回率（A）: {avg_circuity}\n\n"
+    def visualize(self, major_net: nx.MultiDiGraph | None,
+                    full_net: nx.MultiDiGraph | None,
+                    results: dict[str, Any],
+                    save_path: str | None = None) -> bool:
+            """
+            ネットワークと分析結果を可視化
 
-        return report
+            Args:
+                major_net: 主要道路ネットワーク
+                full_net: 全道路ネットワーク
+                results: 分析結果
+                save_path: 保存先パス
+
+            Returns:
+                可視化成功時True
+            """
+            try:
+                # 実際のメソッド名 plot_network_comparison を使用
+                self.visualizer.plot_network_comparison(
+                    major_net, full_net, results, save_path
+                )
+                return True
+            except Exception as e:
+                logger.error(f"可視化エラー: {e}")
+                return False
+
+
+# 便利関数
+def analyze_place_simple(place_query: str | tuple[float, float, float, float],
+                        network_type: str = "drive") -> dict[str, Any]:
+    """
+    簡易分析関数
+
+    Args:
+        place_query: 地名またはbbox
+        network_type: ネットワークタイプ
+
+    Returns:
+        分析結果
+    """
+    analyzer = SpaceSyntaxAnalyzer(network_type=network_type)
+    return analyzer.analyze_place(place_query)

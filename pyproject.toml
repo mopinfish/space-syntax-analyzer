@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "space-syntax-analyzer"
-version = "0.1.0"
+version = "0.1.1"
 description = "A Python library for space syntax analysis of urban street networks"
 authors = [
     {name = "Space Syntax Analyzer Team", email = "contact@space-syntax-analyzer.org"}
@@ -157,9 +157,13 @@ ignore = [
 [dependency-groups]
 dev = [
     "black>=25.1.0",
+    "furo>=2025.7.19",
     "isort>=6.0.1",
     "mypy>=1.17.1",
     "pytest>=8.4.1",
     "pytest-cov>=6.2.1",
     "ruff>=0.12.8",
+    "sphinx>=7.4.7",
+    "sphinx-autodoc-typehints>=2.3.0",
+    "twine>=6.1.0",
 ]
