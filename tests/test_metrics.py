@@ -99,7 +99,6 @@ class TestAccessibilityMetrics:
         # 線形グラフの平均最短距離は計算可能
         assert avg_path > 0
 
-
 class TestCircuityMetrics:
     """CircuityMetricsのテストクラス"""
 
@@ -175,7 +174,7 @@ class TestSpaceSyntaxMetrics:
 
         for metric in required_metrics:
             assert metric in results
-            assert isinstance(results[metric], (int, float))
+            assert isinstance(results[metric], int | float)
 
     def test_empty_graph_handling(self):
         """空グラフの処理テスト"""

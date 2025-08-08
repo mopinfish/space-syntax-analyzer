@@ -435,7 +435,7 @@ class NetworkVisualizer:
             colors = ['blue', 'red', 'green', 'orange']
 
             for i, (network_type, network_values) in enumerate(
-                zip(network_types, values)
+                zip(network_types, values, strict=False)
             ):
                 network_values += network_values[:1]  # 円を閉じる
                 ax.plot(

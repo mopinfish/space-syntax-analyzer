@@ -25,7 +25,7 @@ def validate_graph(graph: nx.Graph) -> bool:
     Returns:
         グラフが有効かどうか
     """
-    if not isinstance(graph, (nx.Graph, nx.MultiGraph, nx.DiGraph, nx.MultiDiGraph)):
+    if not isinstance(graph, nx.Graph | nx.MultiGraph | nx.DiGraph | nx.MultiDiGraph):
         return False
 
     if graph.number_of_nodes() == 0:
@@ -101,7 +101,7 @@ def normalize_metrics(
         default_references.update(reference_values)
 
     for key, value in metrics.items():
-        if key in default_references and isinstance(value, (int, float)):
+        if key in default_references and isinstance(value, int | float):
             ref_value = default_references[key]
             normalized[f"{key}_normalized"] = min(float(value) / ref_value, 1.0)
 
