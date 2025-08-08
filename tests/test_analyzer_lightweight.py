@@ -84,20 +84,19 @@ def test_imports_without_external_deps():
         # ユーティリティ関数のテスト
         assert validate_graph(graph) is True
 
-        metrics = {'alpha_index': 50.0, 'beta_index': 1.5}
-        normalized = normalize_metrics(metrics)
+        metrics_dict = {'alpha_index': 50.0, 'beta_index': 1.5}
+        normalized = normalize_metrics(metrics_dict)
         assert 'alpha_index_normalized' in normalized
 
         print("✅ 軽量テスト完了：基本機能は正常に動作しています")
-        return True
+
 
     except Exception as e:
         print(f"❌ テストエラー: {e}")
         import traceback
         traceback.print_exc()
-        return False
+        raise AssertionError("テストが失敗しました") from e
 
 
 if __name__ == "__main__":
-    success = test_imports_without_external_deps()
-    sys.exit(0 if success else 1)
+    test_imports_without_external_deps()

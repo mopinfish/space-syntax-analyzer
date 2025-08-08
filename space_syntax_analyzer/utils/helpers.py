@@ -148,10 +148,11 @@ def generate_comparison_summary(
     """
     summary: dict[str, str] = {}
 
-    # 回遊性の変化
-    alpha_change = float(full_results.get('alpha_index', 0)) - float(
-        major_results.get('alpha_index', 0)
-    )
+    # 回遊性の変化（α指数）
+    alpha_major = float(major_results.get('alpha_index', 0))
+    alpha_full = float(full_results.get('alpha_index', 0))
+    alpha_change = alpha_full - alpha_major
+
     if alpha_change > 5:
         summary['connectivity'] = "細街路により回遊性が大幅に向上"
     elif alpha_change > 0:
@@ -161,26 +162,30 @@ def generate_comparison_summary(
     else:
         summary['connectivity'] = "細街路による回遊性への影響は軽微"
 
-    # アクセス性の変化
-    distance_change = float(full_results.get('avg_shortest_path', 0)) - float(
-        major_results.get('avg_shortest_path', 0)
-    )
-    if distance_change < -50:
+    # アクセス性の変化（平均最短距離：小さいほど良い）
+    distance_major = float(major_results.get('avg_shortest_path', 0))
+    distance_full = float(full_results.get('avg_shortest_path', 0))
+    distance_change = distance_major - distance_full  # 正の値が改善
+
+    if distance_change > 50:
         summary['accessibility'] = "細街路によりアクセス性が大幅に向上"
-    elif distance_change < 0:
+    elif distance_change > 0:
         summary['accessibility'] = "細街路によりアクセス性がやや向上"
-    elif distance_change > 50:
+    elif distance_change < -50:
         summary['accessibility'] = "細街路によりアクセス性が低下"
     else:
         summary['accessibility'] = "細街路によるアクセス性への影響は軽微"
 
-    # 迂回性の変化
-    circuity_change = float(full_results.get('avg_circuity', 0)) - float(
-        major_results.get('avg_circuity', 0)
-    )
-    if circuity_change < -0.2:
-        summary['circuity'] = "細街路により迂回性が改善"
-    elif circuity_change > 0.2:
+    # 迂回性の変化（迂回率：小さいほど良い）
+    circuity_major = float(major_results.get('avg_circuity', 1.0))
+    circuity_full = float(full_results.get('avg_circuity', 1.0))
+    circuity_change = circuity_major - circuity_full  # 正の値が改善
+
+    if circuity_change > 0.2:
+        summary['circuity'] = "細街路により迂回性が大幅に改善"
+    elif circuity_change > 0.05:
+        summary['circuity'] = "細街路により迂回性がやや改善"
+    elif circuity_change < -0.2:
         summary['circuity'] = "細街路により迂回性が悪化"
     else:
         summary['circuity'] = "細街路による迂回性への影響は軽微"

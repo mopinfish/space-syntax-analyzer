@@ -219,25 +219,61 @@ class SpaceSyntaxAnalyzer:
             report += "### 基本統計\n"
             report += f"- ノード数: {metrics.get('nodes', 'N/A')}\n"
             report += f"- エッジ数: {metrics.get('edges', 'N/A')}\n"
-            report += f"- 道路総延長: {metrics.get('total_length_m', 'N/A'):.1f}m\n\n"
+
+            # total_length_m の安全な処理（修正箇所）
+            total_length = metrics.get('total_length_m', 'N/A')
+            if isinstance(total_length, int | float) and total_length != 'N/A':
+                report += f"- 道路総延長: {total_length:.1f}m\n\n"
+            else:
+                report += f"- 道路総延長: {total_length}\n\n"
 
             # 回遊性指標
             report += "### 回遊性指標\n"
             report += f"- 回路指数（μ）: {metrics.get('mu_index', 'N/A')}\n"
-            report += f"- α指数: {metrics.get('alpha_index', 'N/A'):.1f}%\n"
-            report += f"- β指数: {metrics.get('beta_index', 'N/A'):.2f}\n"
-            report += f"- γ指数: {metrics.get('gamma_index', 'N/A'):.1f}%\n\n"
+            alpha_index = metrics.get('alpha_index', 'N/A')
+            if isinstance(alpha_index, int | float):
+                report += f"- α指数: {alpha_index:.1f}%\n"
+            else:
+                report += f"- α指数: {alpha_index}\n"
+
+            beta_index = metrics.get('beta_index', 'N/A')
+            if isinstance(beta_index, int | float):
+                report += f"- β指数: {beta_index:.2f}\n"
+            else:
+                report += f"- β指数: {beta_index}\n"
+
+            gamma_index = metrics.get('gamma_index', 'N/A')
+            if isinstance(gamma_index, int | float):
+                report += f"- γ指数: {gamma_index:.1f}%\n\n"
+            else:
+                report += f"- γ指数: {gamma_index}\n\n"
 
             # アクセス性指標
             report += "### アクセス性指標\n"
-            report += f"- 平均最短距離（Di）: {metrics.get('avg_shortest_path', 'N/A'):.1f}m\n"
-            report += (
-                f"- 道路密度（Dl）: {metrics.get('road_density', 'N/A'):.1f}m/ha\n"
-            )
-            report += f"- 交差点密度（Dc）: {metrics.get('intersection_density', 'N/A'):.1f}n/ha\n\n"
+            avg_shortest_path = metrics.get('avg_shortest_path', 'N/A')
+            if isinstance(avg_shortest_path, int | float):
+                report += f"- 平均最短距離（Di）: {avg_shortest_path:.1f}m\n"
+            else:
+                report += f"- 平均最短距離（Di）: {avg_shortest_path}\n"
+
+            road_density = metrics.get('road_density', 'N/A')
+            if isinstance(road_density, int | float):
+                report += f"- 道路密度（Dl）: {road_density:.1f}m/ha\n"
+            else:
+                report += f"- 道路密度（Dl）: {road_density}\n"
+
+            intersection_density = metrics.get('intersection_density', 'N/A')
+            if isinstance(intersection_density, int | float):
+                report += f"- 交差点密度（Dc）: {intersection_density:.1f}n/ha\n\n"
+            else:
+                report += f"- 交差点密度（Dc）: {intersection_density}\n\n"
 
             # 迂回性指標
             report += "### 迂回性指標\n"
-            report += f"- 平均迂回率（A）: {metrics.get('avg_circuity', 'N/A'):.2f}\n\n"
+            avg_circuity = metrics.get('avg_circuity', 'N/A')
+            if isinstance(avg_circuity, int | float):
+                report += f"- 平均迂回率（A）: {avg_circuity:.2f}\n\n"
+            else:
+                report += f"- 平均迂回率（A）: {avg_circuity}\n\n"
 
         return report

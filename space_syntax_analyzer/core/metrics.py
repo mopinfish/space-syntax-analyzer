@@ -119,16 +119,17 @@ class AccessibilityMetrics:
         Returns:
             平均最短距離（メートル）
         """
+        if graph.number_of_nodes() < 2:
+            return 0.0
+
         if not nx.is_connected(graph):
             # 最大連結成分のみで計算
             largest_cc = max(nx.connected_components(graph), key=len)
             graph = graph.subgraph(largest_cc)
 
         try:
-            # 全ペア間の最短距離を計算（エッジの重みを使用）
-            path_lengths = dict(
-                nx.all_pairs_shortest_path_length(graph, weight='length')
-            )
+            # NetworkXの新しいバージョンに対応（weight引数を削除）
+            path_lengths = dict(nx.all_pairs_shortest_path_length(graph))
 
             total_distance = 0.0
             total_pairs = 0
@@ -206,6 +207,9 @@ class CircuityMetrics:
         Returns:
             平均迂回率
         """
+        if graph.number_of_nodes() < 2:
+            return 1.0
+
         if not nx.is_connected(graph):
             # 最大連結成分のみで計算
             largest_cc = max(nx.connected_components(graph), key=len)
@@ -219,20 +223,37 @@ class CircuityMetrics:
                     node_coords[node] = (data['x'], data['y'])
 
             if len(node_coords) < 2:
-                return 0.0
+                return 1.0
 
-            # 全ペア間の最短距離（道路距離）を計算
-            path_lengths = dict(
-                nx.all_pairs_shortest_path_length(graph, weight='length')
-            )
+            # NetworkXの新しいバージョンに対応（weight引数を削除）
+            path_lengths = dict(nx.all_pairs_shortest_path_length(graph))
 
             circuity_ratios = []
 
             for source in node_coords:
                 for target in node_coords:
-                    if source != target and target in path_lengths[source]:
-                        # 道路距離
-                        road_distance = path_lengths[source][target]
+                    if (source != target and
+                        source in path_lengths and
+                        target in path_lengths[source]):
+
+                        # 道路距離を計算（エッジの長さ属性を使用）
+                        try:
+                            path = nx.shortest_path(graph, source, target)
+                            road_distance = 0.0
+
+                            for i in range(len(path) - 1):
+                                u, v = path[i], path[i+1]
+                                edge_data = graph.get_edge_data(u, v)
+                                if edge_data and 'length' in edge_data:
+                                    road_distance += edge_data['length']
+                                else:
+                                    # エッジに長さ属性がない場合は座標から計算
+                                    u_coord = node_coords[u]
+                                    v_coord = node_coords[v]
+                                    road_distance += euclidean(u_coord, v_coord)
+                        except (nx.NetworkXNoPath, KeyError, nx.NodeNotFound):
+                            # パスが見つからない場合は直線距離を使用
+                            road_distance = euclidean(node_coords[source], node_coords[target])
 
                         # 直線距離
                         euclidean_distance = euclidean(
@@ -244,13 +265,13 @@ class CircuityMetrics:
                             circuity_ratios.append(circuity)
 
             if not circuity_ratios:
-                return 0.0
+                return 1.0
 
             return np.mean(circuity_ratios)
 
         except Exception as e:
             logger.warning(f"迂回率計算エラー: {e}")
-            return 0.0
+            return 1.0
 
 
 class SpaceSyntaxMetrics:
@@ -285,23 +306,21 @@ class SpaceSyntaxMetrics:
                 data.get('length', 0) for _, _, data in graph.edges(data=True)
             )
 
-            # 回遊性指標
-            mu_index = self.connectivity.calculate_mu_index(graph)
-            alpha_index = self.connectivity.calculate_alpha_index(graph)
-            beta_index = self.connectivity.calculate_beta_index(graph)
-            gamma_index = self.connectivity.calculate_gamma_index(graph)
+            # 回遊性指標（静的メソッド呼び出し）
+            mu_index = ConnectivityMetrics.calculate_mu_index(graph)
+            alpha_index = ConnectivityMetrics.calculate_alpha_index(graph)
+            beta_index = ConnectivityMetrics.calculate_beta_index(graph)
+            gamma_index = ConnectivityMetrics.calculate_gamma_index(graph)
 
-            # アクセス性指標
-            avg_shortest_path = self.accessibility.calculate_average_shortest_path(
-                graph
-            )
-            road_density = self.accessibility.calculate_road_density(graph, area_ha)
-            intersection_density = self.accessibility.calculate_intersection_density(
+            # アクセス性指標（静的メソッド呼び出し）
+            avg_shortest_path = AccessibilityMetrics.calculate_average_shortest_path(graph)
+            road_density = AccessibilityMetrics.calculate_road_density(graph, area_ha)
+            intersection_density = AccessibilityMetrics.calculate_intersection_density(
                 graph, area_ha
             )
 
-            # 迂回性指標
-            avg_circuity = self.circuity.calculate_average_circuity(graph)
+            # 迂回性指標（静的メソッド呼び出し）
+            avg_circuity = CircuityMetrics.calculate_average_circuity(graph)
 
             # 面積あたり回路指数
             mu_per_ha = mu_index / area_ha if area_ha and area_ha > 0 else 0.0
