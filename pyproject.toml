@@ -14,13 +14,16 @@ readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
     "networkx>=3.0",
-    "osmnx>=1.9.0",
-    "pandas>=2.0.0",
     "numpy>=1.24.0",
     "scipy>=1.10.0",
-    "geopandas>=0.14.0",
+    "pandas>=2.0.0",
     "matplotlib>=3.7.0",
     "shapely>=2.0.0",
+    "geopandas>=0.14.0",
+    "osmnx>=1.9.0",
+    "ruff>=0.12.8",
+    "fiona>=1.10.1",
+    "pyproj>=3.6.1",
 ]
 keywords = [
     "space syntax",
@@ -73,7 +76,7 @@ examples = [
 packages = ["space_syntax_analyzer"]
 
 [tool.black]
-target-version = ['py39']
+target-version = ['py312']
 line-length = 88
 skip-string-normalization = true
 
@@ -83,7 +86,7 @@ multi_line_output = 3
 line_length = 88
 
 [tool.mypy]
-python_version = "3.9"
+python_version = "3.12"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
@@ -128,12 +131,10 @@ exclude_lines = [
     "@(abc\\.)?abstractmethod",
 ]
 
-# Ruff: 基本設定（ここは従来どおり）
 [tool.ruff]
-target-version = "py39"
+target-version = "py312"
 line-length = 88
 
-# Ruff: ルール関連設定は lint セクション配下に移動
 [tool.ruff.lint]
 select = [
     "E",  # pycodestyle errors
@@ -152,3 +153,13 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
+
+[dependency-groups]
+dev = [
+    "black>=25.1.0",
+    "isort>=6.0.1",
+    "mypy>=1.17.1",
+    "pytest>=8.4.1",
+    "pytest-cov>=6.2.1",
+    "ruff>=0.12.8",
+]
