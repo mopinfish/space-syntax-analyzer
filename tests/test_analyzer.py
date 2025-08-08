@@ -1,11 +1,16 @@
+# tests/test_analyzer.py（修正版 - 画像生成処理を排除 v2）
 """
-SpaceSyntaxAnalyzerのテストモジュール（修正版）
+SpaceSyntaxAnalyzerのテストモジュール（修正版 - 画像生成なし v2）
 """
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
+# matplotlibのバックエンドを非インタラクティブに設定（画像生成を防ぐ）
+import matplotlib
 import networkx as nx
 import pytest
+
+matplotlib.use("Agg")
 
 from space_syntax_analyzer import SpaceSyntaxAnalyzer
 from space_syntax_analyzer.core.metrics import SpaceSyntaxMetrics
@@ -60,9 +65,17 @@ class TestSpaceSyntaxAnalyzer:
         # モックネットワークの作成
         mock_major_net = nx.Graph()
         mock_major_net.add_edges_from([(1, 2), (2, 3)])
+        # 座標を追加
+        for i, node in enumerate(mock_major_net.nodes()):
+            mock_major_net.nodes[node]["x"] = i * 100
+            mock_major_net.nodes[node]["y"] = 0
 
         mock_full_net = nx.Graph()
         mock_full_net.add_edges_from([(1, 2), (2, 3), (3, 4)])
+        # 座標を追加
+        for i, node in enumerate(mock_full_net.nodes()):
+            mock_full_net.nodes[node]["x"] = i * 100
+            mock_full_net.nodes[node]["y"] = 0
 
         mock_get_networks.return_value = (mock_major_net, mock_full_net)
 
@@ -259,29 +272,95 @@ class TestSpaceSyntaxAnalyzer:
         assert df.iloc[0]["network_type"] == "major_network"
         assert df.iloc[1]["network_type"] == "full_network"
 
-    def test_visualize_success(self):
-        """可視化成功テスト"""
+    @patch("matplotlib.pyplot.show")  # plt.show()をモック化して実際の表示を防ぐ
+    @patch("matplotlib.pyplot.savefig")  # savefigもモック化
+    @patch("matplotlib.pyplot.subplots")  # subplotsもモック化
+    @patch("matplotlib.pyplot.tight_layout")  # tight_layoutもモック化
+    def test_visualize_success(self, mock_tight_layout, mock_subplots, mock_savefig, mock_show):
+        """可視化成功テスト（画像生成なし）"""
+        # モックのfigとaxesを作成
+        mock_fig = MagicMock()
+        mock_axes = MagicMock()
+        mock_subplots.return_value = (mock_fig, mock_axes)
+
         mock_major = nx.Graph()
         mock_full = nx.Graph()
         results = {"metadata": {"query": "Test"}}
 
-        # 実際のメソッド名 plot_network_comparison をモック化
-        with patch.object(self.analyzer.visualizer, "plot_network_comparison", return_value=None) as mock_plot:
-            success = self.analyzer.visualize(mock_major, mock_full, results)
-            mock_plot.assert_called_once()
-            # visualizeメソッドはplot_network_comparisonが正常終了すればTrueを返す
+        # visualizer自体にplot_network_comparisonが存在しないため、
+        # 最初から_basic_visualizationが呼ばれることを前提とする
+        success = self.analyzer.visualize(mock_major, mock_full, results)
+
+        # 成功することを確認
+        assert success is True
+
+        # matplotlibの関数が呼ばれたことを確認
+        mock_subplots.assert_called_once()
+        mock_show.assert_called_once()
+        mock_savefig.assert_not_called()  # save_path=Noneなので呼ばれない
+
+    @patch("matplotlib.pyplot.show")
+    @patch("matplotlib.pyplot.savefig")
+    @patch("matplotlib.pyplot.subplots")
+    def test_visualize_failure(self, mock_subplots, mock_savefig, mock_show):
+        """可視化失敗テスト（画像生成なし）"""
+        mock_major = nx.Graph()
+        mock_full = nx.Graph()
+        results = {"metadata": {"query": "Test"}}
+
+        # subplotsで例外が発生するようにモック化
+        mock_subplots.side_effect = Exception("Test error")
+
+        success = self.analyzer.visualize(mock_major, mock_full, results)
+        assert success is False
+
+        # 例外が発生した場合、show/savefigは呼ばれない
+        mock_show.assert_not_called()
+        mock_savefig.assert_not_called()
+
+    @patch("matplotlib.pyplot.show")
+    @patch("matplotlib.pyplot.savefig")
+    @patch("matplotlib.pyplot.subplots")
+    def test_basic_visualization_with_save(self, mock_subplots, mock_savefig, mock_show):
+        """基本可視化のファイル保存テスト（画像生成なし）"""
+        # モックのfigとaxesを作成
+        mock_fig = MagicMock()
+        mock_axes = MagicMock()
+        mock_axes.flat = [MagicMock() for _ in range(4)]  # 2x2のsubplot
+        mock_subplots.return_value = (mock_fig, mock_axes)
+
+        mock_major = nx.Graph()
+        mock_full = nx.Graph()
+        results = {"metadata": {"query": "Test"}}
+        save_path = "test_output.png"
+
+        # save_pathを指定して実行
+        success = self.analyzer.visualize(mock_major, mock_full, results, save_path=save_path)
+
+        assert success is True
+
+        # ファイル保存が呼ばれることを確認
+        mock_savefig.assert_called_once_with(save_path, dpi=300, bbox_inches="tight")
+        mock_show.assert_called_once()
+
+    def test_visualize_with_empty_networks(self):
+        """空のネットワークでの可視化テスト"""
+        with patch("matplotlib.pyplot.subplots") as mock_subplots:
+            mock_fig = MagicMock()
+            mock_axes = MagicMock()
+            mock_axes.flat = [MagicMock() for _ in range(4)]
+            mock_subplots.return_value = (mock_fig, mock_axes)
+
+            # 空のネットワーク
+            empty_major = None
+            empty_full = None
+            results = {"metadata": {"query": "Empty Test"}}
+
+            success = self.analyzer.visualize(empty_major, empty_full, results)
+
+            # 空のネットワークでも正常に処理されることを確認
             assert success is True
-
-    def test_visualize_failure(self):
-        """可視化失敗テスト"""
-        mock_major = nx.Graph()
-        mock_full = nx.Graph()
-        results = {"metadata": {"query": "Test"}}
-
-        # plot_network_comparisonが例外を発生させるようにモック化
-        with patch.object(self.analyzer.visualizer, "plot_network_comparison", side_effect=Exception("Test error")):
-            success = self.analyzer.visualize(mock_major, mock_full, results)
-            assert success is False
+            mock_subplots.assert_called_once()
 
 
 class TestSpaceSyntaxMetricsIntegration:
@@ -293,6 +372,10 @@ class TestSpaceSyntaxMetricsIntegration:
 
         # テスト用グラフ
         test_graph = nx.cycle_graph(5)
+        # 座標を追加
+        for i, node in enumerate(test_graph.nodes()):
+            test_graph.nodes[node]["x"] = i * 100
+            test_graph.nodes[node]["y"] = 0
 
         results = metrics_calc.calculate_all_metrics(test_graph)
 
@@ -308,6 +391,11 @@ class TestSpaceSyntaxMetricsIntegration:
         # テスト用グラフ
         test_graph = nx.Graph()
         test_graph.add_edges_from([(1, 2), (2, 3), (3, 1)])  # 三角形
+        # 座標を追加
+        coords = {1: (0, 0), 2: (100, 0), 3: (50, 100)}
+        for node, (x, y) in coords.items():
+            test_graph.nodes[node]["x"] = x
+            test_graph.nodes[node]["y"] = y
 
         results = analyzer._analyze_network(test_graph, "三角形")
 
