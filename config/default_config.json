@@ -1,0 +1,42 @@
+{
+  "osm_settings": {
+    "network_type": "walk",
+    "simplify": true,
+    "retain_all": false,
+    "truncate_by_edge": true,
+    "timeout": 180,
+    "memory": null,
+    "max_query_area_size": 50000000
+  },
+  "graph_settings": {
+    "min_segment_length": 10.0,
+    "angle_threshold": 30.0,
+    "connection_tolerance": 5.0,
+    "simplify_tolerance": 1.0
+  },
+  "analysis_settings": {
+    "radius_values": [3, 5, 7, 10],
+    "calculate_global": true,
+    "calculate_local": true,
+    "local_radii": [400, 800, 1200],
+    "weight_attribute": "length",
+    "normalize": true
+  },
+  "visualization_settings": {
+    "figure_size": [12, 8],
+    "dpi": 300,
+    "color_map": "viridis",
+    "edge_linewidth": 0.5,
+    "node_size": 1.0,
+    "alpha": 0.8,
+    "save_formats": ["png", "svg"]
+  },
+  "report_settings": {
+    "include_maps": true,
+    "include_statistics": true,
+    "include_correlations": true,
+    "language": "ja",
+    "template_path": null,
+    "logo_path": null
+  }
+}
