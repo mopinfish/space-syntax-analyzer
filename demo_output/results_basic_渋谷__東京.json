@@ -1,0 +1,63 @@
+{
+  "major_network": {
+    "network_name": "主要道路",
+    "analysis_status": "success",
+    "node_count": 4216,
+    "edge_count": 6077,
+    "avg_degree": 2.8828273244781784,
+    "max_degree": 8,
+    "min_degree": 1,
+    "is_connected": false,
+    "largest_component_size": 3639,
+    "connectivity_ratio": 0.8631404174573055,
+    "density": 0.00034197239910773174,
+    "alpha_index": 22.095644950753528,
+    "beta_index": 1.4414136622390892,
+    "gamma_index": 0.48069925644676476,
+    "road_density": 5.1650209967790675,
+    "avg_circuity": 1.4637144472885133,
+    "total_length": 155556.37392260454,
+    "avg_edge_length": 25.59756029662743,
+    "num_components": 12
+  },
+  "full_network": {
+    "network_name": "全道路",
+    "analysis_status": "success",
+    "node_count": 11959,
+    "edge_count": 21106,
+    "avg_degree": 3.5297265657663686,
+    "max_degree": 10,
+    "min_degree": 1,
+    "is_connected": true,
+    "connectivity_ratio": 1.0,
+    "density": 0.00014758849999023117,
+    "alpha_index": 38.255342282440516,
+    "beta_index": 1.7648632828831843,
+    "gamma_index": 0.5883861615232361,
+    "road_density": 16.13512843586509,
+    "avg_circuity": 1.2228915108769862,
+    "total_length": 496606.45940497,
+    "avg_edge_length": 23.529160400121647,
+    "largest_component_size": 11959,
+    "num_components": 1
+  },
+  "metadata": {
+    "query": "渋谷, 東京",
+    "network_type": "drive",
+    "width_threshold": 6.0,
+    "has_major_network": true,
+    "has_full_network": true,
+    "analysis_status": "success",
+    "analysis_types": [
+      "basic",
+      "connectivity"
+    ],
+    "analysis_timestamp": 1754678902.417058
+  },
+  "area_ha": 3023.243145397889,
+  "integration_summary": {
+    "network_efficiency_score": 14.756109021498624,
+    "overall_integration_score": 14.756109021498624,
+    "integration_level": "大幅改善が必要"
+  }
+}

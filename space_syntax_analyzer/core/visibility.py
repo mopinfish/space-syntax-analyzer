@@ -1,7 +1,9 @@
+# space_syntax_analyzer/core/visibility_fixed.py
 """
-可視領域分析モジュール - VisibilityAnalyzer
+可視領域分析モジュール - VisibilityAnalyzer（エラー修正版）
 
 Isovist分析とVisibility Graph Analysis（VGA）を実装します。
+データ型エラーを修正し、堅牢性を向上させました。
 """
 
 from __future__ import annotations
@@ -88,7 +90,7 @@ class VisibilityAnalyzer:
 
     def _extract_obstacles_from_network(self, network: nx.Graph) -> list[Polygon]:
         """
-        ネットワークから障害物を抽出
+        ネットワークから障害物を抽出（データ型エラー修正版）
 
         Args:
             network: 道路ネットワーク
@@ -101,29 +103,145 @@ class VisibilityAnalyzer:
 
             # エッジを線分として障害物に追加
             for u, v, data in network.edges(data=True):
-                u_data = network.nodes[u]
-                v_data = network.nodes[v]
+                try:
+                    u_data = network.nodes[u]
+                    v_data = network.nodes[v]
 
-                if all(key in u_data for key in ["x", "y"]) and \
-                   all(key in v_data for key in ["x", "y"]):
+                    if all(key in u_data for key in ["x", "y"]) and \
+                       all(key in v_data for key in ["x", "y"]):
 
-                    # 道路幅を考慮した障害物作成
-                    line = LineString([(u_data["x"], u_data["y"]),
-                                     (v_data["x"], v_data["y"])])
+                        # 道路幅を取得（データ型安全版）
+                        building_width = self._safe_get_width(data)
 
-                    # 建物を道路沿いに配置（簡易版）
-                    # 実際の実装では、建物データを別途取得する必要がある
-                    building_width = data.get("width", 4.0)
-                    building_polygon = line.buffer(building_width / 2)
+                        # 道路を線分として作成
+                        line = LineString([(u_data["x"], u_data["y"]),
+                                         (v_data["x"], v_data["y"])])
 
-                    if isinstance(building_polygon, Polygon):
-                        obstacles.append(building_polygon)
+                        # 建物を道路沿いに配置（簡易版）
+                        building_polygon = line.buffer(building_width / 2)
 
+                        if isinstance(building_polygon, Polygon) and building_polygon.is_valid:
+                            obstacles.append(building_polygon)
+
+                except Exception as edge_error:
+                    logger.debug(f"エッジ処理エラー（スキップ）: {edge_error}")
+                    continue
+
+            logger.debug(f"障害物抽出完了: {len(obstacles)}個")
             return obstacles
 
         except Exception as e:
             logger.warning(f"障害物抽出エラー: {e}")
             return []
+
+    def _safe_get_width(self, edge_data: dict) -> float:
+        """
+        エッジデータから安全に幅を取得
+
+        Args:
+            edge_data: エッジのデータ辞書
+
+        Returns:
+            幅の値（メートル）
+        """
+        try:
+            # 優先順位で幅データを取得
+            width_candidates = ["width", "est_width", "lanes"]
+
+            for width_key in width_candidates:
+                if width_key in edge_data:
+                    width_value = edge_data[width_key]
+
+                    # データ型に応じて処理
+                    if isinstance(width_value, int | float):
+                        return max(float(width_value), 1.0)  # 最小1m
+
+                    elif isinstance(width_value, str):
+                        # 文字列から数値を抽出
+                        parsed_width = self._parse_width_string(width_value)
+                        if parsed_width is not None:
+                            return max(parsed_width, 1.0)
+
+                    elif isinstance(width_value, list) and width_value:
+                        # リストの場合は最初の値を使用
+                        first_value = width_value[0]
+                        if isinstance(first_value, int | float):
+                            return max(float(first_value), 1.0)
+                        elif isinstance(first_value, str):
+                            parsed_width = self._parse_width_string(first_value)
+                            if parsed_width is not None:
+                                return max(parsed_width, 1.0)
+
+            # レーン数から推定
+            if "lanes" in edge_data:
+                lanes = edge_data["lanes"]
+                if isinstance(lanes, int | float):
+                    return max(float(lanes) * 3.5, 4.0)  # 1レーン3.5m想定
+                elif isinstance(lanes, str):
+                    parsed_lanes = self._parse_width_string(lanes)
+                    if parsed_lanes is not None:
+                        return max(parsed_lanes * 3.5, 4.0)
+
+            # 道路タイプから推定
+            highway_type = edge_data.get("highway", "")
+            if highway_type:
+                return self._estimate_width_from_highway_type(highway_type)
+
+            # デフォルト値
+            return 4.0
+
+        except Exception as e:
+            logger.debug(f"幅取得エラー: {e}")
+            return 4.0  # デフォルト値
+
+    def _parse_width_string(self, width_str: str) -> float | None:
+        """
+        文字列から幅の数値を抽出
+
+        Args:
+            width_str: 幅を表す文字列
+
+        Returns:
+            抽出された数値、失敗時はNone
+        """
+        try:
+            import re
+
+            # 数値部分を抽出（小数点を含む）
+            match = re.search(r"(\d+(?:\.\d+)?)", width_str)
+            if match:
+                return float(match.group(1))
+
+            return None
+
+        except Exception:
+            return None
+
+    def _estimate_width_from_highway_type(self, highway_type: str) -> float:
+        """
+        道路タイプから幅を推定
+
+        Args:
+            highway_type: OSMの道路タイプ
+
+        Returns:
+            推定幅（メートル）
+        """
+        # 道路タイプごとの典型的な幅
+        width_map = {
+            "motorway": 12.0,
+            "trunk": 10.0,
+            "primary": 8.0,
+            "secondary": 6.0,
+            "tertiary": 5.0,
+            "residential": 4.0,
+            "service": 3.0,
+            "footway": 2.0,
+            "path": 1.5,
+            "cycleway": 2.0,
+        }
+
+        return width_map.get(highway_type, 4.0)
 
     def _calculate_visibility_polygon(self, observation_point: Point,
                                     obstacles: list[Polygon]) -> Polygon:
@@ -162,16 +280,21 @@ class VisibilityAnalyzer:
 
             # 可視領域 = 基本円 - 全陰影
             if shadow_polygons:
-                all_shadows = unary_union(shadow_polygons)
-                visible_area = base_circle.difference(all_shadows)
+                try:
+                    all_shadows = unary_union(shadow_polygons)
+                    visible_area = base_circle.difference(all_shadows)
 
-                if isinstance(visible_area, Polygon):
-                    return visible_area
-                else:
-                    # MultiPolygonの場合は最大面積のポリゴンを選択
-                    if hasattr(visible_area, "geoms"):
-                        largest = max(visible_area.geoms, key=lambda x: x.area)
-                        return largest
+                    if isinstance(visible_area, Polygon) and visible_area.is_valid:
+                        return visible_area
+                    elif hasattr(visible_area, "geoms"):
+                        # MultiPolygonの場合は最大面積のポリゴンを選択
+                        valid_geoms = [geom for geom in visible_area.geoms
+                                     if isinstance(geom, Polygon) and geom.is_valid]
+                        if valid_geoms:
+                            largest = max(valid_geoms, key=lambda x: x.area)
+                            return largest
+                except Exception as shadow_error:
+                    logger.debug(f"陰影計算エラー: {shadow_error}")
 
             return base_circle
 
@@ -225,16 +348,22 @@ class VisibilityAnalyzer:
                 try:
                     hull = ConvexHull(all_points)
                     hull_points = [all_points[i] for i in hull.vertices]
-                    return Polygon(hull_points)
+                    shadow_polygon = Polygon(hull_points)
+
+                    if shadow_polygon.is_valid:
+                        return shadow_polygon
+                    else:
+                        # 無効なポリゴンの場合は元の障害物を返す
+                        return obstacle
+
                 except (ValueError, IndexError) as e:
-                    # 凸包計算に失敗した場合は障害物自体を返す
-                    logger.warning(f"凸包計算エラー: {e}")
+                    logger.debug(f"凸包計算エラー: {e}")
                     return obstacle
 
             return None
 
         except Exception as e:
-            logger.warning(f"陰影計算エラー: {e}")
+            logger.debug(f"陰影計算エラー: {e}")
             return None
 
     def _calculate_isovist_metrics(self, visibility_polygon: Polygon,
@@ -250,6 +379,9 @@ class VisibilityAnalyzer:
             Isovist指標
         """
         try:
+            if not visibility_polygon.is_valid or visibility_polygon.is_empty:
+                return self._get_empty_isovist_metrics()
+
             # 基本指標
             area = visibility_polygon.area
             perimeter = visibility_polygon.length
@@ -258,25 +390,28 @@ class VisibilityAnalyzer:
             compactness = 4 * np.pi * area / perimeter ** 2 if perimeter > 0 else 0.0
 
             # 重心との距離
-            centroid = visibility_polygon.centroid
-            centroid_distance = observation_point.distance(centroid)
+            try:
+                centroid = visibility_polygon.centroid
+                centroid_distance = observation_point.distance(centroid)
+            except Exception:
+                centroid_distance = 0.0
 
-            # 最大可視距離
+            # 最大・最小可視距離
             boundary_coords = list(visibility_polygon.exterior.coords)
-            max_distance = 0.0
+            distances = []
 
             for coord in boundary_coords:
                 if len(coord) >= 2:
-                    boundary_point = Point(coord[0], coord[1])
-                    dist = observation_point.distance(boundary_point)
-                    max_distance = max(max_distance, dist)
+                    try:
+                        boundary_point = Point(coord[0], coord[1])
+                        dist = observation_point.distance(boundary_point)
+                        distances.append(dist)
+                    except Exception as e:
+                        logger.warning(f"距離計算エラー: {e}")
+                        continue
 
-            # 最小可視距離
-            min_distance = min(
-                observation_point.distance(Point(coord[0], coord[1]))
-                for coord in boundary_coords
-                if len(coord) >= 2
-            ) if boundary_coords else 0.0
+            max_distance = max(distances) if distances else 0.0
+            min_distance = min(distances) if distances else 0.0
 
             # Drift（重心偏移）
             drift = centroid_distance
@@ -297,15 +432,19 @@ class VisibilityAnalyzer:
 
         except Exception as e:
             logger.warning(f"Isovist指標計算エラー: {e}")
-            return {
-                "visible_area": 0.0,
-                "perimeter": 0.0,
-                "compactness": 0.0,
-                "max_visible_distance": 0.0,
-                "min_visible_distance": 0.0,
-                "drift": 0.0,
-                "occlusivity": 1.0,
-            }
+            return self._get_empty_isovist_metrics()
+
+    def _get_empty_isovist_metrics(self) -> dict[str, float]:
+        """空のIsovist指標を返す"""
+        return {
+            "visible_area": 0.0,
+            "perimeter": 0.0,
+            "compactness": 0.0,
+            "max_visible_distance": 0.0,
+            "min_visible_distance": 0.0,
+            "drift": 0.0,
+            "occlusivity": 1.0,
+        }
 
     def analyze_visibility_field(self, network: nx.Graph,
                                sampling_distance: float = 50.0) -> dict[str, Any]:
@@ -329,22 +468,32 @@ class VisibilityAnalyzer:
                 logger.warning("サンプリング点が生成されませんでした")
                 return self._empty_visibility_field_result()
 
-            # 各点でのIsovist計算
-            isovist_results = []
+            # 障害物を事前に抽出（効率化）
             obstacles = self._extract_obstacles_from_network(network)
 
-            for i, point in enumerate(sampling_points):
-                if i % 10 == 0:  # 進捗表示
-                    logger.info(f"Isovist計算進捗: {i}/{len(sampling_points)}")
+            # 各点でのIsovist計算
+            isovist_results = []
+            total_points = len(sampling_points)
 
-                isovist = self.calculate_isovist(point, network, obstacles)
-                isovist_results.append(isovist)
+            for i, point in enumerate(sampling_points):
+                if i % max(10, total_points // 10) == 0:  # 進捗表示
+                    logger.info(f"Isovist計算進捗: {i}/{total_points}")
+
+                try:
+                    isovist = self.calculate_isovist(point, network, obstacles)
+                    isovist_results.append(isovist)
+                except Exception as point_error:
+                    logger.debug(f"点 {i} でのIsovist計算エラー: {point_error}")
+                    # エラーの場合は空の結果を追加
+                    isovist_results.append(self._empty_isovist_result(point))
 
             # 統計分析
             field_statistics = self._calculate_field_statistics(isovist_results)
 
             # 可視領域の変動性分析
             variability_metrics = self._calculate_visibility_variability(isovist_results)
+
+            logger.info(f"可視領域フィールド分析完了: {len(isovist_results)}点")
 
             return {
                 "sampling_points": sampling_points,
@@ -373,20 +522,25 @@ class VisibilityAnalyzer:
             sampling_points = []
 
             for u, v, _data in network.edges(data=True):
-                u_data = network.nodes[u]
-                v_data = network.nodes[v]
+                try:
+                    u_data = network.nodes[u]
+                    v_data = network.nodes[v]
 
-                if all(key in u_data for key in ["x", "y"]) and \
-                   all(key in v_data for key in ["x", "y"]):
+                    if all(key in u_data for key in ["x", "y"]) and \
+                       all(key in v_data for key in ["x", "y"]):
 
-                    start_point = (u_data["x"], u_data["y"])
-                    end_point = (v_data["x"], v_data["y"])
+                        start_point = (u_data["x"], u_data["y"])
+                        end_point = (v_data["x"], v_data["y"])
 
-                    # エッジ上にサンプリング点を配置
-                    edge_points = self._sample_points_on_edge(
-                        start_point, end_point, sampling_distance
-                    )
-                    sampling_points.extend(edge_points)
+                        # エッジ上にサンプリング点を配置
+                        edge_points = self._sample_points_on_edge(
+                            start_point, end_point, sampling_distance
+                        )
+                        sampling_points.extend(edge_points)
+
+                except Exception as edge_error:
+                    logger.debug(f"エッジサンプリングエラー: {edge_error}")
+                    continue
 
             # 重複点の除去
             unique_points = []
@@ -424,9 +578,9 @@ class VisibilityAnalyzer:
             edge_length = distance.euclidean(start, end)
 
             if edge_length <= interval:
-                return [(start[0] + end[0]) / 2, (start[1] + end[1]) / 2]
+                return [((start[0] + end[0]) / 2, (start[1] + end[1]) / 2)]
 
-            num_points = int(edge_length / interval)
+            num_points = max(1, int(edge_length / interval))
             points = []
 
             for i in range(1, num_points):
@@ -454,14 +608,17 @@ class VisibilityAnalyzer:
             if not isovist_results:
                 return {}
 
-            # 可視面積の統計
-            areas = [result.get("visible_area", 0) for result in isovist_results]
+            # 有効な結果のみを抽出
+            valid_results = [result for result in isovist_results
+                           if "visible_area" in result and isinstance(result["visible_area"], int | float)]
 
-            # コンパクト性の統計
-            compactness_values = [result.get("compactness", 0) for result in isovist_results]
+            if not valid_results:
+                return {}
 
-            # 遮蔽性の統計
-            occlusivity_values = [result.get("occlusivity", 0) for result in isovist_results]
+            # 各指標の値を抽出
+            areas = [result["visible_area"] for result in valid_results]
+            compactness_values = [result.get("compactness", 0) for result in valid_results]
+            occlusivity_values = [result.get("occlusivity", 0) for result in valid_results]
 
             return {
                 "mean_visible_area": float(np.mean(areas)),
@@ -472,7 +629,7 @@ class VisibilityAnalyzer:
                 "std_compactness": float(np.std(compactness_values)),
                 "mean_occlusivity": float(np.mean(occlusivity_values)),
                 "std_occlusivity": float(np.std(occlusivity_values)),
-                "total_sampling_points": len(isovist_results),
+                "total_sampling_points": len(valid_results),
             }
 
         except Exception as e:
@@ -493,12 +650,19 @@ class VisibilityAnalyzer:
             if not isovist_results:
                 return {}
 
+            # 有効な結果のみを抽出
+            valid_results = [result for result in isovist_results
+                           if "visible_area" in result and isinstance(result["visible_area"], int | float)]
+
+            if not valid_results:
+                return {}
+
             # 可視面積の変動係数
-            areas = [result.get("visible_area", 0) for result in isovist_results]
+            areas = [result["visible_area"] for result in valid_results]
             area_cv = np.std(areas) / np.mean(areas) if np.mean(areas) > 0 else 0
 
             # コンパクト性の変動係数
-            compactness_values = [result.get("compactness", 0) for result in isovist_results]
+            compactness_values = [result.get("compactness", 0) for result in valid_results]
             compactness_cv = (np.std(compactness_values) / np.mean(compactness_values)
                             if np.mean(compactness_values) > 0 else 0)
 
@@ -589,10 +753,14 @@ class VisibilityAnalyzer:
 
             for i, intersection1 in enumerate(major_intersections):
                 for j, intersection2 in enumerate(major_intersections[i+1:], i+1):
-                    connectivity = self._calculate_visual_connection(
-                        intersection1, intersection2, network
-                    )
-                    visual_connections[(i, j)] = connectivity
+                    try:
+                        connectivity = self._calculate_visual_connection(
+                            intersection1, intersection2, network
+                        )
+                        visual_connections[(i, j)] = connectivity
+                    except Exception as conn_error:
+                        logger.debug(f"視覚接続計算エラー ({i}, {j}): {conn_error}")
+                        visual_connections[(i, j)] = 0.0
 
             # 視覚的接続性ネットワークの構築
             visual_network = self._build_visual_network(
@@ -670,7 +838,7 @@ class VisibilityAnalyzer:
             return connectivity_score
 
         except Exception as e:
-            logger.warning(f"視覚的接続性計算エラー: {e}")
+            logger.debug(f"視覚的接続性計算エラー: {e}")
             return 0.0
 
     def _build_visual_network(self, intersections: list[tuple[float, float]],
@@ -729,16 +897,19 @@ class VisibilityAnalyzer:
                 avg_path_length = nx.average_shortest_path_length(visual_network)
             else:
                 # 最大連結成分での計算
-                largest_cc = max(nx.connected_components(visual_network), key=len)
-                subgraph = visual_network.subgraph(largest_cc)
-                if subgraph.number_of_nodes() > 1:
-                    avg_path_length = nx.average_shortest_path_length(subgraph)
+                if visual_network.number_of_nodes() > 0:
+                    largest_cc = max(nx.connected_components(visual_network), key=len)
+                    subgraph = visual_network.subgraph(largest_cc)
+                    if subgraph.number_of_nodes() > 1:
+                        avg_path_length = nx.average_shortest_path_length(subgraph)
+                    else:
+                        avg_path_length = 0.0
                 else:
                     avg_path_length = 0.0
 
             # 平均視覚的接続性
             if num_edges > 0:
-                connection_scores = [data["visual_connectivity"]
+                connection_scores = [data.get("visual_connectivity", 0)
                                    for _, _, data in visual_network.edges(data=True)]
                 avg_visual_connectivity = np.mean(connection_scores)
             else:
@@ -900,13 +1071,7 @@ class VisibilityAnalyzer:
             "observation_point": observation_point,
             "visibility_polygon": Point(observation_point).buffer(0),
             "obstacles": [],
-            "visible_area": 0.0,
-            "perimeter": 0.0,
-            "compactness": 0.0,
-            "max_visible_distance": 0.0,
-            "min_visible_distance": 0.0,
-            "drift": 0.0,
-            "occlusivity": 1.0,
+            **self._get_empty_isovist_metrics()
         }
 
     def _empty_visibility_field_result(self) -> dict[str, Any]:
@@ -926,103 +1091,3 @@ class VisibilityAnalyzer:
             "visual_network": nx.Graph(),
             "network_metrics": {},
         }
-
-    def export_visibility_results(self, results: dict[str, Any],
-                                output_path: str,
-                                format_type: str = "geojson") -> None:
-        """
-        可視領域分析結果をエクスポート
-
-        Args:
-            results: 分析結果
-            output_path: 出力パス
-            format_type: 出力形式
-        """
-        try:
-            if format_type.lower() == "geojson":
-                self._export_visibility_geojson(results, output_path)
-            elif format_type.lower() == "csv":
-                self._export_visibility_csv(results, output_path)
-            else:
-                raise ValueError(f"Unsupported format: {format_type}")
-
-        except Exception as e:
-            logger.error(f"可視領域結果エクスポートエラー: {e}")
-            raise
-
-    def _export_visibility_geojson(self, results: dict[str, Any], output_path: str) -> None:
-        """可視領域結果をGeoJSON形式でエクスポート"""
-        try:
-            import json
-
-            from shapely.geometry import mapping
-
-            features = []
-
-            # サンプリング点の追加
-            for i, point in enumerate(results.get("sampling_points", [])):
-                feature = {
-                    "type": "Feature",
-                    "geometry": mapping(Point(point)),
-                    "properties": {
-                        "type": "sampling_point",
-                        "point_id": i
-                    }
-                }
-                features.append(feature)
-
-            # 可視領域ポリゴンの追加
-            for i, isovist in enumerate(results.get("isovist_results", [])):
-                if "visibility_polygon" in isovist:
-                    feature = {
-                        "type": "Feature",
-                        "geometry": mapping(isovist["visibility_polygon"]),
-                        "properties": {
-                            "type": "visibility_polygon",
-                            "point_id": i,
-                            "visible_area": isovist.get("visible_area", 0),
-                            "compactness": isovist.get("compactness", 0),
-                        }
-                    }
-                    features.append(feature)
-
-            geojson = {
-                "type": "FeatureCollection",
-                "features": features
-            }
-
-            with open(output_path, "w", encoding="utf-8") as f:
-                json.dump(geojson, f, ensure_ascii=False, indent=2)
-
-        except Exception as e:
-            logger.error(f"GeoJSONエクスポートエラー: {e}")
-            raise
-
-    def _export_visibility_csv(self, results: dict[str, Any], output_path: str) -> None:
-        """可視領域結果をCSV形式でエクスポート"""
-        try:
-            import pandas as pd
-
-            data = []
-
-            for i, isovist in enumerate(results.get("isovist_results", [])):
-                row = {
-                    "point_id": i,
-                    "x": isovist.get("observation_point", [0, 0])[0],
-                    "y": isovist.get("observation_point", [0, 0])[1],
-                    "visible_area": isovist.get("visible_area", 0),
-                    "perimeter": isovist.get("perimeter", 0),
-                    "compactness": isovist.get("compactness", 0),
-                    "max_visible_distance": isovist.get("max_visible_distance", 0),
-                    "min_visible_distance": isovist.get("min_visible_distance", 0),
-                    "drift": isovist.get("drift", 0),
-                    "occlusivity": isovist.get("occlusivity", 0),
-                }
-                data.append(row)
-
-            df = pd.DataFrame(data)
-            df.to_csv(output_path, index=False, encoding="utf-8-sig")
-
-        except Exception as e:
-            logger.error(f"CSVエクスポートエラー: {e}")
-            raise
