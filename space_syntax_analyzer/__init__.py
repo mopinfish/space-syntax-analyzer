@@ -24,11 +24,11 @@ __license__ = "MIT"
 
 __all__ = [
     "SpaceSyntaxAnalyzer",
-    "NetworkManager", 
+    "NetworkManager",
     "NetworkVisualizer",
     "SpaceSyntaxMetrics",
     "ConnectivityMetrics",
-    "AccessibilityMetrics", 
+    "AccessibilityMetrics",
     "CircuityMetrics",
 ]
 

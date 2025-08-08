@@ -15,7 +15,7 @@ from .visualization import NetworkVisualizer
 __all__ = [
     "SpaceSyntaxAnalyzer",
     "NetworkManager",
-    "NetworkVisualizer", 
+    "NetworkVisualizer",
     "SpaceSyntaxMetrics",
     "ConnectivityMetrics",
     "AccessibilityMetrics",
