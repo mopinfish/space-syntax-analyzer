@@ -19,11 +19,11 @@ except ImportError:
     NetworkVisualizer = None
 
 __all__ = [
-    'SpaceSyntaxAnalyzer',
-    'analyze_place_simple',
-    'NetworkManager',
-    'create_bbox_from_center',
-    'get_network_from_query',
-    'SpaceSyntaxMetrics',
-    'NetworkVisualizer'
+    "SpaceSyntaxAnalyzer",
+    "analyze_place_simple",
+    "NetworkManager",
+    "create_bbox_from_center",
+    "get_network_from_query",
+    "SpaceSyntaxMetrics",
+    "NetworkVisualizer"
 ]

@@ -269,7 +269,7 @@ uv run pytest --cov=space_syntax_analyzer --cov-report=html
 このライブラリを研究で使用する場合は、以下のように引用してください：
 
 ```
-Space Syntax Analyzer Team. (2025). space-syntax-analyzer: A Python library for space syntax analysis of urban street networks. https://github.com/space-syntax/space-syntax-analyzer
+Space Syntax Analyzer Team. (2025). space-syntax-analyzer: A Python library for space syntax analysis of urban street networks. https://github.com/mopinfish/space-syntax-analyzer
 ```
 
 ## 参考文献
@@ -280,9 +280,9 @@ Space Syntax Analyzer Team. (2025). space-syntax-analyzer: A Python library for 
 
 ## サポート
 
-- **Issues**: [GitHub Issues](https://github.com/space-syntax/space-syntax-analyzer/issues)
-- **ディスカッション**: [GitHub Discussions](https://github.com/space-syntax/space-syntax-analyzer/discussions)
-- **ドキュメント**: [公式ドキュメント](https://space-syntax-analyzer.readthedocs.io)
+- **Issues**: [GitHub Issues](https://github.com/mopinfish/space-syntax-analyzer/issues)
+- **ディスカッション**: [GitHub Discussions](https://github.com/mopinfish/space-syntax-analyzer/discussions)
+- **ドキュメント**: [公式ドキュメント(WIP)]()
 
 ## 更新履歴
 

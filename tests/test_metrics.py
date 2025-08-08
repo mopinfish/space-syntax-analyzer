@@ -23,35 +23,35 @@ class TestSpaceSyntaxMetrics:
         self.grid_graph = nx.grid_2d_graph(3, 3)
         # 座標データを追加
         for node in self.grid_graph.nodes():
-            self.grid_graph.nodes[node]['x'] = node[0] * 100
-            self.grid_graph.nodes[node]['y'] = node[1] * 100
+            self.grid_graph.nodes[node]["x"] = node[0] * 100
+            self.grid_graph.nodes[node]["y"] = node[1] * 100
 
         # エッジに長さを追加
         for u, v in self.grid_graph.edges():
-            self.grid_graph.edges[u, v]['length'] = 100
+            self.grid_graph.edges[u, v]["length"] = 100
 
     def test_calculate_all_metrics(self):
         """全指標計算テスト"""
         results = self.metrics_calculator.calculate_all_metrics(self.grid_graph)
 
         # 基本統計の確認
-        assert results['node_count'] == 9
-        assert results['edge_count'] == 12
+        assert results["node_count"] == 9
+        assert results["edge_count"] == 12
 
         # 指標の存在確認
         required_metrics = [
-            'node_count',
-            'edge_count',
-            'avg_degree',
-            'density',
-            'alpha_index',
-            'beta_index',
-            'gamma_index',
-            'road_density',
-            'avg_circuity',
-            'total_length',
-            'is_connected',
-            'connectivity_ratio'
+            "node_count",
+            "edge_count",
+            "avg_degree",
+            "density",
+            "alpha_index",
+            "beta_index",
+            "gamma_index",
+            "road_density",
+            "avg_circuity",
+            "total_length",
+            "is_connected",
+            "connectivity_ratio"
         ]
 
         for metric in required_metrics:
@@ -64,10 +64,10 @@ class TestSpaceSyntaxMetrics:
         results = self.metrics_calculator.calculate_all_metrics(empty_graph)
 
         # 空のメトリクスが返されることを確認
-        assert results['node_count'] == 0
-        assert results['edge_count'] == 0
-        assert results['avg_degree'] == 0.0
-        assert results['density'] == 0.0
+        assert results["node_count"] == 0
+        assert results["edge_count"] == 0
+        assert results["avg_degree"] == 0.0
+        assert results["density"] == 0.0
 
     def test_disconnected_graph_handling(self):
         """非連結グラフの処理テスト"""
@@ -79,16 +79,16 @@ class TestSpaceSyntaxMetrics:
         # 座標を追加
         coords = {1: (0, 0), 2: (100, 0), 3: (200, 0), 4: (300, 0)}
         for node, (x, y) in coords.items():
-            disconnected_graph.nodes[node]['x'] = x
-            disconnected_graph.nodes[node]['y'] = y
+            disconnected_graph.nodes[node]["x"] = x
+            disconnected_graph.nodes[node]["y"] = y
 
         # エラーなく処理されることを確認
         results = self.metrics_calculator.calculate_all_metrics(disconnected_graph)
 
-        assert results['node_count'] == 4
-        assert results['edge_count'] == 2
-        assert results['is_connected'] is False
-        assert results['connectivity_ratio'] < 1.0
+        assert results["node_count"] == 4
+        assert results["edge_count"] == 2
+        assert results["is_connected"] is False
+        assert results["connectivity_ratio"] < 1.0
 
     def test_basic_metrics(self):
         """基本指標計算テスト"""
@@ -96,11 +96,11 @@ class TestSpaceSyntaxMetrics:
         linear_graph = nx.path_graph(5)
         results = self.metrics_calculator._calculate_basic_metrics(linear_graph)
 
-        assert results['node_count'] == 5
-        assert results['edge_count'] == 4
-        assert results['avg_degree'] == 1.6  # 4*2/5 = 1.6
-        assert results['max_degree'] == 2
-        assert results['min_degree'] == 1
+        assert results["node_count"] == 5
+        assert results["edge_count"] == 4
+        assert results["avg_degree"] == 1.6  # 4*2/5 = 1.6
+        assert results["max_degree"] == 2
+        assert results["min_degree"] == 1
 
     def test_space_syntax_indices(self):
         """Space Syntax指数計算テスト"""
@@ -108,9 +108,9 @@ class TestSpaceSyntaxMetrics:
         triangle_graph = nx.cycle_graph(3)
         results = self.metrics_calculator._calculate_space_syntax_indices(triangle_graph)
 
-        assert results['alpha_index'] > 0  # 回路があるのでα指数は正
-        assert results['beta_index'] == 1.0  # 3エッジ/3ノード = 1.0
-        assert results['gamma_index'] > 0
+        assert results["alpha_index"] > 0  # 回路があるのでα指数は正
+        assert results["beta_index"] == 1.0  # 3エッジ/3ノード = 1.0
+        assert results["gamma_index"] > 0
 
     def test_connectivity_metrics(self):
         """連結性指標計算テスト"""
@@ -118,10 +118,10 @@ class TestSpaceSyntaxMetrics:
         complete_graph = nx.complete_graph(4)
         results = self.metrics_calculator._calculate_connectivity_metrics(complete_graph)
 
-        assert results['is_connected'] is True
-        assert results['connectivity_ratio'] == 1.0
-        assert results['largest_component_size'] == 4
-        assert results['num_components'] == 1
+        assert results["is_connected"] is True
+        assert results["connectivity_ratio"] == 1.0
+        assert results["largest_component_size"] == 4
+        assert results["num_components"] == 1
 
     def test_density_metrics(self):
         """密度指標計算テスト"""
@@ -133,10 +133,10 @@ class TestSpaceSyntaxMetrics:
 
         results = self.metrics_calculator._calculate_density_metrics(graph)
 
-        assert results['total_length'] == 100
-        assert results['avg_edge_length'] == 100
-        assert results['road_density'] >= 0
-        assert results['avg_circuity'] >= 1.0
+        assert results["total_length"] == 100
+        assert results["avg_edge_length"] == 100
+        assert results["road_density"] >= 0
+        assert results["avg_circuity"] >= 1.0
 
     def test_integration_values(self):
         """Integration値計算テスト"""
@@ -176,14 +176,14 @@ class TestConnectivityMetrics:
         # 完全グラフ
         complete_graph = nx.complete_graph(5)
         results = metrics_calc._calculate_space_syntax_indices(complete_graph)
-        alpha = results['alpha_index']
+        alpha = results["alpha_index"]
         # α指数は100%を超える場合があるので、0以上であることのみ確認
         assert alpha >= 0
 
         # 木構造
         tree_graph = nx.path_graph(5)
         results_tree = metrics_calc._calculate_space_syntax_indices(tree_graph)
-        alpha_tree = results_tree['alpha_index']
+        alpha_tree = results_tree["alpha_index"]
         assert alpha_tree == 0
 
     def test_beta_index_calculation(self):
@@ -193,7 +193,7 @@ class TestConnectivityMetrics:
         # スターグラフ（中心ノードの次数が高い）
         star_graph = nx.star_graph(4)
         results = metrics_calc._calculate_space_syntax_indices(star_graph)
-        beta = results['beta_index']
+        beta = results["beta_index"]
         # 5ノード、4エッジ → β = 4/5 = 0.8
         assert abs(beta - 0.8) < 0.001
 
@@ -203,7 +203,7 @@ class TestConnectivityMetrics:
 
         complete_graph = nx.complete_graph(4)
         results = metrics_calc._calculate_space_syntax_indices(complete_graph)
-        gamma = results['gamma_index']
+        gamma = results["gamma_index"]
         # 完全グラフではγ = 100%になるはず
         assert gamma == 1.0  # 正規化されているので1.0
 
@@ -225,7 +225,7 @@ class TestAccessibilityMetrics:
         metrics_calc = SpaceSyntaxMetrics()
         results = metrics_calc._calculate_density_metrics(self.simple_graph)
 
-        total_length = results['total_length']
+        total_length = results["total_length"]
         assert total_length == 200.0  # 100 + 100
 
     def test_average_shortest_path(self):
@@ -254,7 +254,7 @@ class TestCircuityMetrics:
         metrics_calc = SpaceSyntaxMetrics()
         results = metrics_calc._calculate_density_metrics(self.straight_graph)
 
-        circuity = results['avg_circuity']
+        circuity = results["avg_circuity"]
         # 迂回率は1.0以上であることを確認
         assert circuity >= 1.0
 
@@ -267,29 +267,29 @@ class TestHelperFunctions:
         graph = nx.cycle_graph(4)
         stats = calculate_basic_network_stats(graph)
 
-        assert stats['node_count'] == 4
-        assert stats['edge_count'] == 4
-        assert stats['avg_degree'] == 2.0
-        assert stats['density'] > 0
+        assert stats["node_count"] == 4
+        assert stats["edge_count"] == 4
+        assert stats["avg_degree"] == 2.0
+        assert stats["density"] > 0
 
     def test_calculate_space_syntax_indices(self):
         """Space Syntax指数計算テスト"""
         graph = nx.cycle_graph(5)
         indices = calculate_space_syntax_indices(graph)
 
-        assert 'alpha_index' in indices
-        assert 'beta_index' in indices
-        assert 'gamma_index' in indices
-        assert indices['alpha_index'] > 0  # 回路があるので正の値
+        assert "alpha_index" in indices
+        assert "beta_index" in indices
+        assert "gamma_index" in indices
+        assert indices["alpha_index"] > 0  # 回路があるので正の値
 
     def test_empty_graph_stats(self):
         """空グラフの統計テスト"""
         empty_graph = nx.Graph()
         stats = calculate_basic_network_stats(empty_graph)
 
-        assert stats['node_count'] == 0
-        assert stats['edge_count'] == 0
-        assert stats['avg_degree'] == 0.0
+        assert stats["node_count"] == 0
+        assert stats["edge_count"] == 0
+        assert stats["avg_degree"] == 0.0
 
     def test_small_graph_indices(self):
         """小さなグラフの指数テスト"""
@@ -299,9 +299,9 @@ class TestHelperFunctions:
 
         indices = calculate_space_syntax_indices(small_graph)
 
-        assert indices['alpha_index'] == 0.0
-        assert indices['beta_index'] == 0.0
-        assert indices['gamma_index'] == 0.0
+        assert indices["alpha_index"] == 0.0
+        assert indices["beta_index"] == 0.0
+        assert indices["gamma_index"] == 0.0
 
 
 if __name__ == "__main__":

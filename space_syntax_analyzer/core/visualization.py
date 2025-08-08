@@ -22,16 +22,16 @@ class NetworkVisualizer:
     def __init__(self) -> None:
         """NetworkVisualizerを初期化"""
         # matplotlib日本語フォント設定
-        plt.rcParams['font.family'] = [
-            'DejaVu Sans',
-            'Hiragino Sans',
-            'Yu Gothic',
-            'Meiryo',
-            'Takao',
-            'IPAexGothic',
-            'IPAPGothic',
-            'VL PGothic',
-            'Noto Sans CJK JP',
+        plt.rcParams["font.family"] = [
+            "DejaVu Sans",
+            "Hiragino Sans",
+            "Yu Gothic",
+            "Meiryo",
+            "Takao",
+            "IPAexGothic",
+            "IPAPGothic",
+            "VL PGothic",
+            "Noto Sans CJK JP",
         ]
 
     def plot_network_comparison(
@@ -56,15 +56,15 @@ class NetworkVisualizer:
 
         # 2つのネットワークを並べて表示
         fig, axes = plt.subplots(1, 2, figsize=(16, 8))
-        fig.suptitle('道路ネットワーク比較', fontsize=16, fontweight='bold')
+        fig.suptitle("道路ネットワーク比較", fontsize=16, fontweight="bold")
 
         # 主要道路ネットワーク
         self._plot_network_on_axis(
-            major_network, axes[0], "主要道路ネットワーク (>4m)", 'blue'
+            major_network, axes[0], "主要道路ネットワーク (>4m)", "blue"
         )
 
         # 全道路ネットワーク
-        self._plot_network_on_axis(full_network, axes[1], "全道路ネットワーク", 'red')
+        self._plot_network_on_axis(full_network, axes[1], "全道路ネットワーク", "red")
 
         # 分析結果がある場合はテキストとして表示
         if results:
@@ -73,7 +73,7 @@ class NetworkVisualizer:
         plt.tight_layout()
 
         if save_path:
-            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+            plt.savefig(save_path, dpi=300, bbox_inches="tight")
 
         plt.show()
 
@@ -83,15 +83,15 @@ class NetworkVisualizer:
         """単一ネットワークの表示"""
         fig, ax = plt.subplots(1, 1, figsize=(12, 12))
 
-        self._plot_network_on_axis(graph, ax, title, 'blue')
+        self._plot_network_on_axis(graph, ax, title, "blue")
 
         if save_path:
-            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+            plt.savefig(save_path, dpi=300, bbox_inches="tight")
 
         plt.show()
 
     def _plot_network_on_axis(
-        self, graph: nx.Graph, ax: plt.Axes, title: str, color: str = 'blue'
+        self, graph: nx.Graph, ax: plt.Axes, title: str, color: str = "blue"
     ) -> None:
         """指定されたaxesにネットワークを描画"""
         try:
@@ -99,10 +99,10 @@ class NetworkVisualizer:
                 ax.text(
                     0.5,
                     0.5,
-                    'ネットワークデータなし',
+                    "ネットワークデータなし",
                     transform=ax.transAxes,
-                    ha='center',
-                    va='center',
+                    ha="center",
+                    va="center",
                 )
                 ax.set_title(title)
                 return
@@ -110,17 +110,17 @@ class NetworkVisualizer:
             # ノードとエッジの座標を取得
             pos = {}
             for node, data in graph.nodes(data=True):
-                if 'x' in data and 'y' in data:
-                    pos[node] = (data['x'], data['y'])
+                if "x" in data and "y" in data:
+                    pos[node] = (data["x"], data["y"])
 
             if not pos:
                 ax.text(
                     0.5,
                     0.5,
-                    '座標データなし',
+                    "座標データなし",
                     transform=ax.transAxes,
-                    ha='center',
-                    va='center',
+                    ha="center",
+                    va="center",
                 )
                 ax.set_title(title)
                 return
@@ -140,7 +140,7 @@ class NetworkVisualizer:
                     graph.subgraph(intersections),
                     intersection_pos,
                     ax=ax,
-                    node_color='red',
+                    node_color="red",
                     node_size=30,
                     alpha=0.8,
                 )
@@ -153,24 +153,24 @@ class NetworkVisualizer:
                     graph.subgraph(endpoints),
                     endpoint_pos,
                     ax=ax,
-                    node_color='orange',
+                    node_color="orange",
                     node_size=20,
                     alpha=0.8,
                 )
 
-            ax.set_title(title, fontsize=12, fontweight='bold')
-            ax.set_aspect('equal')
-            ax.axis('off')
+            ax.set_title(title, fontsize=12, fontweight="bold")
+            ax.set_aspect("equal")
+            ax.axis("off")
 
         except Exception as e:
             logger.error(f"ネットワーク描画エラー: {e}")
             ax.text(
                 0.5,
                 0.5,
-                f'描画エラー: {str(e)}',
+                f"描画エラー: {str(e)}",
                 transform=ax.transAxes,
-                ha='center',
-                va='center',
+                ha="center",
+                va="center",
             )
             ax.set_title(title)
 
@@ -196,8 +196,8 @@ class NetworkVisualizer:
             textstr,
             transform=fig.transFigure,
             fontsize=10,
-            verticalalignment='top',
-            bbox={'boxstyle': 'round', 'facecolor': 'wheat', 'alpha': 0.8},
+            verticalalignment="top",
+            bbox={"boxstyle": "round", "facecolor": "wheat", "alpha": 0.8},
         )
 
     def plot_metrics_comparison(
@@ -219,11 +219,11 @@ class NetworkVisualizer:
 
         # レーダーチャート用のデータ準備
         radar_metrics = [
-            'alpha_index',
-            'beta_index',
-            'gamma_index',
-            'road_density',
-            'intersection_density',
+            "alpha_index",
+            "beta_index",
+            "gamma_index",
+            "road_density",
+            "intersection_density",
         ]
 
         available_metrics = [m for m in radar_metrics if m in metrics_df.columns]
@@ -235,18 +235,18 @@ class NetworkVisualizer:
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 6))
 
         # 棒グラフ
-        metrics_df[available_metrics].plot(kind='bar', ax=ax1)
-        ax1.set_title('指標比較（棒グラフ）', fontsize=12, fontweight='bold')
-        ax1.set_ylabel('指標値')
+        metrics_df[available_metrics].plot(kind="bar", ax=ax1)
+        ax1.set_title("指標比較（棒グラフ）", fontsize=12, fontweight="bold")
+        ax1.set_ylabel("指標値")
         ax1.legend()
-        ax1.tick_params(axis='x', rotation=45)
+        ax1.tick_params(axis="x", rotation=45)
 
         # テーブル表示
-        ax2.axis('off')
+        ax2.axis("off")
         table_data = []
         for metric in available_metrics:
             row = [metric]
-            for network_type in results.keys():
+            for network_type in results:
                 value = results[network_type].get(metric, 0)
                 if isinstance(value, float):
                     row.append(f"{value:.2f}")
@@ -254,19 +254,19 @@ class NetworkVisualizer:
                     row.append(str(value))
             table_data.append(row)
 
-        headers = ['指標'] + list(results.keys())
+        headers = ["指標"] + list(results.keys())
         table = ax2.table(
-            cellText=table_data, colLabels=headers, cellLoc='center', loc='center'
+            cellText=table_data, colLabels=headers, cellLoc="center", loc="center"
         )
         table.auto_set_font_size(False)
         table.set_fontsize(10)
         table.scale(1.2, 1.5)
-        ax2.set_title('指標一覧', fontsize=12, fontweight='bold')
+        ax2.set_title("指標一覧", fontsize=12, fontweight="bold")
 
         plt.tight_layout()
 
         if save_path:
-            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+            plt.savefig(save_path, dpi=300, bbox_inches="tight")
 
         plt.show()
 
@@ -289,24 +289,24 @@ class NetworkVisualizer:
             return
 
         fig, axes = plt.subplots(2, 2, figsize=(12, 10))
-        fig.suptitle(title, fontsize=16, fontweight='bold')
+        fig.suptitle(title, fontsize=16, fontweight="bold")
 
         # 次数分布
         degrees = [degree for node, degree in graph.degree()]
         axes[0, 0].hist(
-            degrees, bins=max(1, len(set(degrees))), edgecolor='black', alpha=0.7
+            degrees, bins=max(1, len(set(degrees))), edgecolor="black", alpha=0.7
         )
-        axes[0, 0].set_title('次数分布')
-        axes[0, 0].set_xlabel('次数')
-        axes[0, 0].set_ylabel('頻度')
+        axes[0, 0].set_title("次数分布")
+        axes[0, 0].set_xlabel("次数")
+        axes[0, 0].set_ylabel("頻度")
 
         # エッジ長分布
-        edge_lengths = [data.get('length', 0) for _, _, data in graph.edges(data=True)]
+        edge_lengths = [data.get("length", 0) for _, _, data in graph.edges(data=True)]
         if edge_lengths:
-            axes[0, 1].hist(edge_lengths, bins=30, edgecolor='black', alpha=0.7)
-            axes[0, 1].set_title('エッジ長分布')
-            axes[0, 1].set_xlabel('長さ (m)')
-            axes[0, 1].set_ylabel('頻度')
+            axes[0, 1].hist(edge_lengths, bins=30, edgecolor="black", alpha=0.7)
+            axes[0, 1].set_title("エッジ長分布")
+            axes[0, 1].set_xlabel("長さ (m)")
+            axes[0, 1].set_ylabel("頻度")
 
         # 連結成分のサイズ分布
         components = list(nx.connected_components(graph))
@@ -314,12 +314,12 @@ class NetworkVisualizer:
         axes[1, 0].bar(
             range(len(component_sizes)), sorted(component_sizes, reverse=True)
         )
-        axes[1, 0].set_title('連結成分サイズ')
-        axes[1, 0].set_xlabel('成分番号')
-        axes[1, 0].set_ylabel('ノード数')
+        axes[1, 0].set_title("連結成分サイズ")
+        axes[1, 0].set_xlabel("成分番号")
+        axes[1, 0].set_ylabel("ノード数")
 
         # 基本統計情報
-        axes[1, 1].axis('off')
+        axes[1, 1].axis("off")
         stats_text = f"""基本統計:
 ノード数: {graph.number_of_nodes()}
 エッジ数: {graph.number_of_edges()}
@@ -333,14 +333,14 @@ class NetworkVisualizer:
             stats_text,
             transform=axes[1, 1].transAxes,
             fontsize=12,
-            verticalalignment='top',
-            bbox={'boxstyle': 'round', 'facecolor': 'lightblue', 'alpha': 0.8},
+            verticalalignment="top",
+            bbox={"boxstyle": "round", "facecolor": "lightblue", "alpha": 0.8},
         )
 
         plt.tight_layout()
 
         if save_path:
-            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+            plt.savefig(save_path, dpi=300, bbox_inches="tight")
 
         plt.show()
 
@@ -362,19 +362,19 @@ class NetworkVisualizer:
 
         # 列名を日本語に変換
         column_mapping = {
-            'nodes': 'ノード数',
-            'edges': 'エッジ数',
-            'total_length_m': '道路総延長(m)',
-            'area_ha': '面積(ha)',
-            'mu_index': '回路指数(μ)',
-            'mu_per_ha': '平均回路指数(μ/ha)',
-            'alpha_index': 'α指数(%)',
-            'beta_index': 'β指数',
-            'gamma_index': 'γ指数(%)',
-            'avg_shortest_path': '平均最短距離(m)',
-            'road_density': '道路密度(m/ha)',
-            'intersection_density': '交差点密度(n/ha)',
-            'avg_circuity': '平均迂回率',
+            "nodes": "ノード数",
+            "edges": "エッジ数",
+            "total_length_m": "道路総延長(m)",
+            "area_ha": "面積(ha)",
+            "mu_index": "回路指数(μ)",
+            "mu_per_ha": "平均回路指数(μ/ha)",
+            "alpha_index": "α指数(%)",
+            "beta_index": "β指数",
+            "gamma_index": "γ指数(%)",
+            "avg_shortest_path": "平均最短距離(m)",
+            "road_density": "道路密度(m/ha)",
+            "intersection_density": "交差点密度(n/ha)",
+            "avg_circuity": "平均迂回率",
         }
 
         # 存在する列のみ変換
@@ -383,11 +383,11 @@ class NetworkVisualizer:
 
         # 数値の丸め
         for col in df.columns:
-            if df[col].dtype in ['float64', 'float32']:
+            if df[col].dtype in ["float64", "float32"]:
                 df[col] = df[col].round(2)
 
         if save_path:
-            df.to_csv(save_path, encoding='utf-8-sig')
+            df.to_csv(save_path, encoding="utf-8-sig")
 
         return df
 
@@ -405,8 +405,8 @@ class NetworkVisualizer:
             import numpy as np
 
             # レーダーチャート用の指標選択
-            radar_metrics = ['alpha_index', 'beta_index', 'gamma_index']
-            metric_labels = ['α指数(%)', 'β指数', 'γ指数(%)']
+            radar_metrics = ["alpha_index", "beta_index", "gamma_index"]
+            metric_labels = ["α指数(%)", "β指数", "γ指数(%)"]
 
             # データの準備
             network_types = list(results.keys())
@@ -417,7 +417,7 @@ class NetworkVisualizer:
                 for metric in radar_metrics:
                     value = results[network_type].get(metric, 0)
                     # 正規化（0-1の範囲に）
-                    if metric == 'alpha_index' or metric == 'gamma_index':
+                    if metric == "alpha_index" or metric == "gamma_index":
                         normalized_value = value / 100.0  # パーセント値
                     else:
                         normalized_value = min(value / 3.0, 1.0)  # β指数は通常3以下
@@ -430,9 +430,9 @@ class NetworkVisualizer:
             ).tolist()
             angles += angles[:1]  # 円を閉じる
 
-            fig, ax = plt.subplots(figsize=(8, 8), subplot_kw={'projection': 'polar'})
+            fig, ax = plt.subplots(figsize=(8, 8), subplot_kw={"projection": "polar"})
 
-            colors = ['blue', 'red', 'green', 'orange']
+            colors = ["blue", "red", "green", "orange"]
 
             for i, (network_type, network_values) in enumerate(
                 zip(network_types, values, strict=False)
@@ -441,7 +441,7 @@ class NetworkVisualizer:
                 ax.plot(
                     angles,
                     network_values,
-                    'o-',
+                    "o-",
                     linewidth=2,
                     label=network_type,
                     color=colors[i % len(colors)],
@@ -453,11 +453,11 @@ class NetworkVisualizer:
             ax.set_xticks(angles[:-1])
             ax.set_xticklabels(metric_labels)
             ax.set_ylim(0, 1)
-            ax.set_title('指標レーダーチャート', fontsize=14, fontweight='bold', pad=20)
-            ax.legend(loc='upper right', bbox_to_anchor=(1.3, 1.0))
+            ax.set_title("指標レーダーチャート", fontsize=14, fontweight="bold", pad=20)
+            ax.legend(loc="upper right", bbox_to_anchor=(1.3, 1.0))
 
             if save_path:
-                plt.savefig(save_path, dpi=300, bbox_inches='tight')
+                plt.savefig(save_path, dpi=300, bbox_inches="tight")
 
             plt.show()
 

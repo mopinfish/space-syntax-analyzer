@@ -57,20 +57,20 @@ except ImportError:
         """ロギングを設定"""
         log_level = getattr(logging, level.upper(), logging.INFO)
         formatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-            datefmt='%Y-%m-%d %H:%M:%S'
+            "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S"
         )
         handler = logging.StreamHandler(sys.stdout)
         handler.setFormatter(formatter)
 
-        logger = logging.getLogger('space_syntax_analyzer')
+        logger = logging.getLogger("space_syntax_analyzer")
         logger.setLevel(log_level)
         logger.handlers.clear()
         logger.addHandler(handler)
 
         # 外部ライブラリのログレベルを調整
-        logging.getLogger('osmnx').setLevel(logging.WARNING)
-        logging.getLogger('matplotlib').setLevel(logging.WARNING)
+        logging.getLogger("osmnx").setLevel(logging.WARNING)
+        logging.getLogger("matplotlib").setLevel(logging.WARNING)
 
     def check_osmnx_version() -> dict[str, str]:
         """OSMnxとその他の依存関係のバージョン情報を取得"""
@@ -78,24 +78,24 @@ except ImportError:
 
         try:
             import osmnx
-            version_info['osmnx'] = osmnx.__version__
+            version_info["osmnx"] = osmnx.__version__
         except ImportError:
-            version_info['osmnx'] = 'Not installed'
+            version_info["osmnx"] = "Not installed"
 
         try:
             import networkx
-            version_info['networkx'] = networkx.__version__
+            version_info["networkx"] = networkx.__version__
         except ImportError:
-            version_info['networkx'] = 'Not installed'
+            version_info["networkx"] = "Not installed"
 
         try:
             import pandas
-            version_info['pandas'] = pandas.__version__
+            version_info["pandas"] = pandas.__version__
         except ImportError:
-            version_info['pandas'] = 'Not installed'
+            version_info["pandas"] = "Not installed"
 
-        version_info['python'] = sys.version.split()[0]
-        version_info['platform'] = platform.system()
+        version_info["python"] = sys.version.split()[0]
+        version_info["platform"] = platform.system()
 
         return version_info
 
@@ -117,24 +117,24 @@ except ImportError:
 
         try:
             # ノード数比較
-            major_nodes = major_network.get('node_count', 0)
-            full_nodes = full_network.get('node_count', 0)
+            major_nodes = major_network.get("node_count", 0)
+            full_nodes = full_network.get("node_count", 0)
             node_ratio = (major_nodes / full_nodes * 100) if full_nodes > 0 else 0
-            summary['主要道路ノード比率'] = f"{node_ratio:.1f}% ({major_nodes:,} / {full_nodes:,})"
+            summary["主要道路ノード比率"] = f"{node_ratio:.1f}% ({major_nodes:,} / {full_nodes:,})"
 
             # エッジ数比較
-            major_edges = major_network.get('edge_count', 0)
-            full_edges = full_network.get('edge_count', 0)
+            major_edges = major_network.get("edge_count", 0)
+            full_edges = full_network.get("edge_count", 0)
             edge_ratio = (major_edges / full_edges * 100) if full_edges > 0 else 0
-            summary['主要道路エッジ比率'] = f"{edge_ratio:.1f}% ({major_edges:,} / {full_edges:,})"
+            summary["主要道路エッジ比率"] = f"{edge_ratio:.1f}% ({major_edges:,} / {full_edges:,})"
 
             # 指標比較
-            major_alpha = major_network.get('alpha_index', 0)
-            full_alpha = full_network.get('alpha_index', 0)
-            summary['α指数比較'] = f"主要: {major_alpha:.1f}%, 全体: {full_alpha:.1f}%"
+            major_alpha = major_network.get("alpha_index", 0)
+            full_alpha = full_network.get("alpha_index", 0)
+            summary["α指数比較"] = f"主要: {major_alpha:.1f}%, 全体: {full_alpha:.1f}%"
 
         except Exception as e:
-            summary['エラー'] = str(e)
+            summary["エラー"] = str(e)
 
         return summary
 
@@ -144,13 +144,13 @@ except ImportError:
             lines = ["=== 分析サマリー ==="]
 
             # メタデータ
-            metadata = results.get('metadata', {})
+            metadata = results.get("metadata", {})
             lines.append(f"対象: {metadata.get('query', 'N/A')}")
             lines.append(f"ステータス: {metadata.get('analysis_status', 'N/A')}")
             lines.append("")
 
             # 主要道路ネットワーク
-            major = results.get('major_network')
+            major = results.get("major_network")
             if major:
                 lines.append("主要道路ネットワーク:")
                 lines.append(f"  ノード: {major.get('node_count', 0):,}")
@@ -160,7 +160,7 @@ except ImportError:
                 lines.append("")
 
             # 全道路ネットワーク
-            full = results.get('full_network')
+            full = results.get("full_network")
             if full:
                 lines.append("全道路ネットワーク:")
                 lines.append(f"  ノード: {full.get('node_count', 0):,}")
@@ -223,7 +223,7 @@ except ImportError:
 
     def validate_network_data(G) -> dict[str, Any]:
         """ネットワークデータの妥当性を検証"""
-        return {'is_valid': G is not None, 'issues': [], 'warnings': [], 'stats': {}}
+        return {"is_valid": G is not None, "issues": [], "warnings": [], "stats": {}}
 
     def create_simple_summary_report(results: dict[str, Any]) -> str:
         """簡単なサマリーレポートを作成"""
@@ -231,42 +231,42 @@ except ImportError:
 
     def check_dependencies() -> dict[str, bool]:
         """必要な依存関係をチェック"""
-        return {'osmnx': True, 'networkx': True, 'pandas': True, 'numpy': True}
+        return {"osmnx": True, "networkx": True, "pandas": True, "numpy": True}
 
     def get_memory_usage_info() -> dict[str, str]:
         """メモリ使用量の情報を取得"""
-        return {'rss': 'N/A', 'vms': 'N/A', 'percent': 'N/A'}
+        return {"rss": "N/A", "vms": "N/A", "percent": "N/A"}
 
 # 全てのエクスポート
 __all__ = [
     # メインクラス
-    'SpaceSyntaxAnalyzer',
-    'NetworkManager',
-    'SpaceSyntaxMetrics',
-    'NetworkVisualizer',
+    "SpaceSyntaxAnalyzer",
+    "NetworkManager",
+    "SpaceSyntaxMetrics",
+    "NetworkVisualizer",
 
     # 便利関数
-    'analyze_place_simple',
-    'create_bbox_from_center',
-    'get_network_from_query',
-    'setup_logging',
-    'validate_bbox',
-    'format_coordinates',
+    "analyze_place_simple",
+    "create_bbox_from_center",
+    "get_network_from_query",
+    "setup_logging",
+    "validate_bbox",
+    "format_coordinates",
 
     # basic_usage.pyで必要な追加関数
-    'check_osmnx_version',
-    'debug_network_info',
-    'generate_comparison_summary',
-    'calculate_bbox_area',
-    'estimate_processing_time',
-    'create_analysis_summary',
-    'validate_network_data',
-    'create_simple_summary_report',
-    'check_dependencies',
-    'get_memory_usage_info',
+    "check_osmnx_version",
+    "debug_network_info",
+    "generate_comparison_summary",
+    "calculate_bbox_area",
+    "estimate_processing_time",
+    "create_analysis_summary",
+    "validate_network_data",
+    "create_simple_summary_report",
+    "check_dependencies",
+    "get_memory_usage_info",
 
     # バージョン情報
-    '__version__'
+    "__version__"
 ]
 
 # デフォルトロガーの設定
@@ -276,8 +276,8 @@ def _configure_default_logging():
     if not logger.handlers:
         handler = logging.StreamHandler()
         formatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-            datefmt='%Y-%m-%d %H:%M:%S'
+            "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S"
         )
         handler.setFormatter(formatter)
         logger.addHandler(handler)

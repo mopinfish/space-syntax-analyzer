@@ -124,34 +124,34 @@ class TestComparisonSummary:
     def test_generate_comparison_summary(self):
         """比較サマリー生成テスト"""
         major_results = {
-            'node_count': 100,
-            'edge_count': 120,
-            'avg_degree': 2.4,
-            'alpha_index': 20.0,
-            'beta_index': 1.2
+            "node_count": 100,
+            "edge_count": 120,
+            "avg_degree": 2.4,
+            "alpha_index": 20.0,
+            "beta_index": 1.2
         }
 
         full_results = {
-            'node_count': 300,
-            'edge_count': 400,
-            'avg_degree': 2.7,
-            'alpha_index': 30.0,
-            'beta_index': 1.3
+            "node_count": 300,
+            "edge_count": 400,
+            "avg_degree": 2.7,
+            "alpha_index": 30.0,
+            "beta_index": 1.3
         }
 
         summary = generate_comparison_summary(major_results, full_results)
 
         # 必要なキーが存在することを確認
-        assert '主要道路ノード数' in summary
-        assert '全道路ノード数' in summary
-        assert '主要道路比率' in summary
-        assert '主要道路エッジ数' in summary
-        assert '全道路エッジ数' in summary
+        assert "主要道路ノード数" in summary
+        assert "全道路ノード数" in summary
+        assert "主要道路比率" in summary
+        assert "主要道路エッジ数" in summary
+        assert "全道路エッジ数" in summary
 
         # 計算結果の確認
-        assert summary['主要道路ノード数'] == 100
-        assert summary['全道路ノード数'] == 300
-        assert "33.3%" in summary['主要道路比率']
+        assert summary["主要道路ノード数"] == 100
+        assert summary["全道路ノード数"] == 300
+        assert "33.3%" in summary["主要道路比率"]
 
     def test_empty_results_summary(self):
         """空の結果の比較サマリーテスト"""
@@ -162,8 +162,8 @@ class TestComparisonSummary:
 
         # エラーが発生しないことを確認
         assert isinstance(summary, dict)
-        assert summary['主要道路ノード数'] == 0
-        assert summary['全道路ノード数'] == 0
+        assert summary["主要道路ノード数"] == 0
+        assert summary["全道路ノード数"] == 0
 
 
 class TestBboxCreation:
@@ -220,50 +220,50 @@ class TestAnalysisSummary:
     def test_create_analysis_summary(self):
         """分析サマリー作成テスト"""
         results = {
-            'metadata': {
-                'query': 'Test Location',
-                'network_type': 'drive',
-                'analysis_status': 'success'
+            "metadata": {
+                "query": "Test Location",
+                "network_type": "drive",
+                "analysis_status": "success"
             },
-            'major_network': {
-                'node_count': 100,
-                'edge_count': 120,
-                'alpha_index': 25.0,
-                'connectivity_ratio': 0.95
+            "major_network": {
+                "node_count": 100,
+                "edge_count": 120,
+                "alpha_index": 25.0,
+                "connectivity_ratio": 0.95
             },
-            'full_network': {
-                'node_count': 300,
-                'edge_count': 400,
-                'alpha_index': 35.0,
-                'connectivity_ratio': 0.98
+            "full_network": {
+                "node_count": 300,
+                "edge_count": 400,
+                "alpha_index": 35.0,
+                "connectivity_ratio": 0.98
             }
         }
 
         summary = create_analysis_summary(results)
 
         # 基本情報の確認
-        assert summary['query'] == 'Test Location'
-        assert summary['network_type'] == 'drive'
-        assert summary['analysis_status'] == 'success'
+        assert summary["query"] == "Test Location"
+        assert summary["network_type"] == "drive"
+        assert summary["analysis_status"] == "success"
 
         # ネットワーク情報の確認
-        assert summary['major_nodes'] == 100
-        assert summary['full_nodes'] == 300
-        assert summary['major_ratio'] == 100/300*100
+        assert summary["major_nodes"] == 100
+        assert summary["full_nodes"] == 300
+        assert summary["major_ratio"] == 100/300*100
 
     def test_incomplete_results_summary(self):
         """不完全な結果の分析サマリーテスト"""
         results = {
-            'metadata': {'query': 'Test'},
-            'major_network': None,
-            'full_network': None
+            "metadata": {"query": "Test"},
+            "major_network": None,
+            "full_network": None
         }
 
         summary = create_analysis_summary(results)
 
         # エラーが発生しないことを確認
         assert isinstance(summary, dict)
-        assert summary['query'] == 'Test'
+        assert summary["query"] == "Test"
 
 
 class TestVersionCheck:
@@ -277,11 +277,11 @@ class TestVersionCheck:
         assert isinstance(version_info, dict)
 
         # エラーまたは正常な情報のいずれかが返されることを確認
-        if 'error' in version_info:
-            assert isinstance(version_info['error'], str)
+        if "error" in version_info:
+            assert isinstance(version_info["error"], str)
         else:
-            assert 'osmnx' in version_info
-            assert 'networkx' in version_info
+            assert "osmnx" in version_info
+            assert "networkx" in version_info
 
 
 class TestProcessingTimeEstimation:
@@ -386,9 +386,9 @@ class TestHelperFunctions:
 
         # ロガーが返されることを確認
         assert logger is not None
-        assert hasattr(logger, 'info')
-        assert hasattr(logger, 'debug')
-        assert hasattr(logger, 'error')
+        assert hasattr(logger, "info")
+        assert hasattr(logger, "debug")
+        assert hasattr(logger, "error")
 
     def test_setup_logging_invalid_level(self):
         """不正なログレベルでのセットアップテスト"""

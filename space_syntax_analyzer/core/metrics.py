@@ -59,7 +59,7 @@ class SpaceSyntaxMetrics:
             n_edges = len(G.edges)
 
             if n_nodes == 0:
-                return {'node_count': 0, 'edge_count': 0, 'avg_degree': 0.0, 'density': 0.0}
+                return {"node_count": 0, "edge_count": 0, "avg_degree": 0.0, "density": 0.0}
 
             # 次数統計
             degrees = dict(G.degree())
@@ -69,17 +69,17 @@ class SpaceSyntaxMetrics:
             density = nx.density(G)
 
             return {
-                'node_count': n_nodes,
-                'edge_count': n_edges,
-                'avg_degree': float(avg_degree),
-                'max_degree': max(degrees.values()) if degrees else 0,
-                'min_degree': min(degrees.values()) if degrees else 0,
-                'density': float(density)
+                "node_count": n_nodes,
+                "edge_count": n_edges,
+                "avg_degree": float(avg_degree),
+                "max_degree": max(degrees.values()) if degrees else 0,
+                "min_degree": min(degrees.values()) if degrees else 0,
+                "density": float(density)
             }
 
         except Exception as e:
             self.logger.error(f"基本指標計算エラー: {e}")
-            return {'node_count': 0, 'edge_count': 0, 'avg_degree': 0.0, 'density': 0.0}
+            return {"node_count": 0, "edge_count": 0, "avg_degree": 0.0, "density": 0.0}
 
     def _calculate_space_syntax_indices(self, G: nx.MultiDiGraph) -> dict[str, float]:
         """Space Syntax指標（α、β、γ指数）を計算"""
@@ -89,9 +89,9 @@ class SpaceSyntaxMetrics:
 
             if n_nodes < 3:
                 return {
-                    'alpha_index': 0.0,
-                    'beta_index': 0.0,
-                    'gamma_index': 0.0
+                    "alpha_index": 0.0,
+                    "beta_index": 0.0,
+                    "gamma_index": 0.0
                 }
 
             # α指数: 実際の閉路数 / 最大可能閉路数
@@ -107,14 +107,14 @@ class SpaceSyntaxMetrics:
             gamma_index = n_edges / max_edges if max_edges > 0 else 0.0
 
             return {
-                'alpha_index': float(alpha_index),
-                'beta_index': float(beta_index),
-                'gamma_index': float(gamma_index)
+                "alpha_index": float(alpha_index),
+                "beta_index": float(beta_index),
+                "gamma_index": float(gamma_index)
             }
 
         except Exception as e:
             self.logger.error(f"Space Syntax指数計算エラー: {e}")
-            return {'alpha_index': 0.0, 'beta_index': 0.0, 'gamma_index': 0.0}
+            return {"alpha_index": 0.0, "beta_index": 0.0, "gamma_index": 0.0}
 
     def _calculate_density_metrics(self, G: nx.MultiDiGraph) -> dict[str, float]:
         """密度と迂回率関連の指標を計算"""
@@ -124,15 +124,15 @@ class SpaceSyntaxMetrics:
             edge_lengths = []
 
             for _u, _v, data in G.edges(data=True):
-                length = data.get('length', 0)
+                length = data.get("length", 0)
                 if length > 0:
                     total_length += length
                     edge_lengths.append(length)
 
             # 推定エリア面積（ノードの外接矩形から）
             if len(G.nodes) > 0:
-                lats = [G.nodes[node].get('y', 0) for node in G.nodes]
-                lons = [G.nodes[node].get('x', 0) for node in G.nodes]
+                lats = [G.nodes[node].get("y", 0) for node in G.nodes]
+                lons = [G.nodes[node].get("x", 0) for node in G.nodes]
 
                 if lats and lons:
                     lat_range = max(lats) - min(lats)
@@ -155,15 +155,15 @@ class SpaceSyntaxMetrics:
             avg_circuity = self._calculate_circuity(G) if len(G.edges) > 0 else 1.0
 
             return {
-                'road_density': float(road_density),
-                'avg_circuity': float(avg_circuity),
-                'total_length': float(total_length),
-                'avg_edge_length': float(np.mean(edge_lengths)) if edge_lengths else 0
+                "road_density": float(road_density),
+                "avg_circuity": float(avg_circuity),
+                "total_length": float(total_length),
+                "avg_edge_length": float(np.mean(edge_lengths)) if edge_lengths else 0
             }
 
         except Exception as e:
             self.logger.error(f"密度指標計算エラー: {e}")
-            return {'road_density': 0.0, 'avg_circuity': 1.0, 'total_length': 0.0, 'avg_edge_length': 0.0}
+            return {"road_density": 0.0, "avg_circuity": 1.0, "total_length": 0.0, "avg_edge_length": 0.0}
 
     def _calculate_circuity(self, G: nx.MultiDiGraph) -> float:
         """迂回率を計算（簡易版）"""
@@ -182,15 +182,15 @@ class SpaceSyntaxMetrics:
                 try:
                     if pair[0] != pair[1] and nx.has_path(G, pair[0], pair[1]):
                         # ネットワーク距離
-                        path_length = nx.shortest_path_length(G, pair[0], pair[1], weight='length')
+                        path_length = nx.shortest_path_length(G, pair[0], pair[1], weight="length")
 
                         # 直線距離
                         node1_data = G.nodes[pair[0]]
                         node2_data = G.nodes[pair[1]]
-                        if all(key in node1_data for key in ['x', 'y']) and all(key in node2_data for key in ['x', 'y']):
+                        if all(key in node1_data for key in ["x", "y"]) and all(key in node2_data for key in ["x", "y"]):
                             euclidean_dist = np.sqrt(
-                                (node1_data['x'] - node2_data['x'])**2 +
-                                (node1_data['y'] - node2_data['y'])**2
+                                (node1_data["x"] - node2_data["x"])**2 +
+                                (node1_data["y"] - node2_data["y"])**2
                             ) * 111000  # 度をメートルに概算変換
 
                             if euclidean_dist > 0:
@@ -210,10 +210,10 @@ class SpaceSyntaxMetrics:
         try:
             if len(G.nodes) == 0:
                 return {
-                    'is_connected': False,
-                    'largest_component_size': 0,
-                    'connectivity_ratio': 0.0,
-                    'num_components': 0
+                    "is_connected": False,
+                    "largest_component_size": 0,
+                    "connectivity_ratio": 0.0,
+                    "num_components": 0
                 }
 
             # 有向グラフの場合は弱連結成分、無向グラフの場合は連結成分を使用
@@ -229,41 +229,41 @@ class SpaceSyntaxMetrics:
             connectivity_ratio = largest_component_size / len(G.nodes)
 
             return {
-                'is_connected': is_connected,
-                'largest_component_size': largest_component_size,
-                'connectivity_ratio': float(connectivity_ratio),
-                'num_components': len(components)
+                "is_connected": is_connected,
+                "largest_component_size": largest_component_size,
+                "connectivity_ratio": float(connectivity_ratio),
+                "num_components": len(components)
             }
 
         except Exception as e:
             self.logger.error(f"連結性指標計算エラー: {e}")
             return {
-                'is_connected': False,
-                'largest_component_size': 0,
-                'connectivity_ratio': 0.0,
-                'num_components': 0
+                "is_connected": False,
+                "largest_component_size": 0,
+                "connectivity_ratio": 0.0,
+                "num_components": 0
             }
 
     def _get_default_metrics(self) -> dict[str, float]:
         """デフォルトの指標値を返す"""
         return {
-            'node_count': 0,
-            'edge_count': 0,
-            'avg_degree': 0.0,
-            'max_degree': 0,
-            'min_degree': 0,
-            'density': 0.0,
-            'alpha_index': 0.0,
-            'beta_index': 0.0,
-            'gamma_index': 0.0,
-            'road_density': 0.0,
-            'avg_circuity': 1.0,
-            'total_length': 0.0,
-            'avg_edge_length': 0.0,
-            'is_connected': False,
-            'largest_component_size': 0,
-            'connectivity_ratio': 0.0,
-            'num_components': 0
+            "node_count": 0,
+            "edge_count": 0,
+            "avg_degree": 0.0,
+            "max_degree": 0,
+            "min_degree": 0,
+            "density": 0.0,
+            "alpha_index": 0.0,
+            "beta_index": 0.0,
+            "gamma_index": 0.0,
+            "road_density": 0.0,
+            "avg_circuity": 1.0,
+            "total_length": 0.0,
+            "avg_edge_length": 0.0,
+            "is_connected": False,
+            "largest_component_size": 0,
+            "connectivity_ratio": 0.0,
+            "num_components": 0
         }
 
     def calculate_integration_values(self, G: nx.MultiDiGraph) -> dict[int, float]:

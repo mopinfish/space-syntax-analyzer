@@ -218,13 +218,13 @@ class NetworkManager:
         """グラフを安全に単純化"""
         # 既存の実装
         try:
-            if hasattr(G.graph, 'simplified') and G.graph.get('simplified', False):
+            if hasattr(G.graph, "simplified") and G.graph.get("simplified", False):
                 logger.warning("グラフは既に単純化されています")
                 return G
 
             logger.info("グラフを単純化中...")
             G_simplified = ox.simplify_graph(G)
-            G_simplified.graph['simplified'] = True
+            G_simplified.graph["simplified"] = True
 
             logger.info(f"グラフ単純化完了: {len(G.nodes)} -> {len(G_simplified.nodes)} ノード")
             return G_simplified
@@ -244,8 +244,8 @@ class NetworkManager:
 
             # 主要道路の判定基準
             major_highway_types = {
-                'motorway', 'trunk', 'primary', 'secondary',
-                'motorway_link', 'trunk_link', 'primary_link', 'secondary_link'
+                "motorway", "trunk", "primary", "secondary",
+                "motorway_link", "trunk_link", "primary_link", "secondary_link"
             }
 
             major_edges = []
@@ -254,12 +254,12 @@ class NetworkManager:
                 is_major = False
 
                 # 道路幅による判定
-                width = data.get('width')
+                width = data.get("width")
                 if width:
                     try:
                         if isinstance(width, str):
                             # "4.5"や"4.5;3.0"のような形式に対応
-                            width_str = width.split(';')[0].strip()
+                            width_str = width.split(";")[0].strip()
                             width_val = float(width_str)
                         else:
                             width_val = float(width)
@@ -270,19 +270,19 @@ class NetworkManager:
                         pass
 
                 # 道路種別による判定
-                highway = data.get('highway', '')
+                highway = data.get("highway", "")
                 if isinstance(highway, list):
-                    highway = highway[0] if highway else ''
+                    highway = highway[0] if highway else ""
 
                 if highway in major_highway_types:
                     is_major = True
 
                 # レーン数による判定
-                lanes = data.get('lanes')
+                lanes = data.get("lanes")
                 if lanes:
                     try:
                         if isinstance(lanes, str):
-                            lanes_str = lanes.split(';')[0].strip()
+                            lanes_str = lanes.split(";")[0].strip()
                             lanes_val = int(lanes_str)
                         else:
                             lanes_val = int(lanes)
@@ -342,38 +342,38 @@ class NetworkManager:
             stats = {}
 
             # 基本情報
-            stats['node_count'] = len(G.nodes)
-            stats['edge_count'] = len(G.edges)
+            stats["node_count"] = len(G.nodes)
+            stats["edge_count"] = len(G.edges)
 
             if len(G.nodes) == 0:
                 return stats
 
             # 次数統計
             degrees = dict(G.degree())
-            stats['avg_degree'] = np.mean(list(degrees.values()))
-            stats['max_degree'] = max(degrees.values())
-            stats['min_degree'] = min(degrees.values())
+            stats["avg_degree"] = np.mean(list(degrees.values()))
+            stats["max_degree"] = max(degrees.values())
+            stats["min_degree"] = min(degrees.values())
 
             # 連結性
             if nx.is_connected(G.to_undirected()):
-                stats['is_connected'] = True
-                stats['connectivity_ratio'] = 1.0
+                stats["is_connected"] = True
+                stats["connectivity_ratio"] = 1.0
             else:
                 # 最大連結成分
                 largest_cc = max(nx.weakly_connected_components(G), key=len)
-                stats['is_connected'] = False
-                stats['largest_component_size'] = len(largest_cc)
-                stats['connectivity_ratio'] = len(largest_cc) / len(G.nodes)
+                stats["is_connected"] = False
+                stats["largest_component_size"] = len(largest_cc)
+                stats["connectivity_ratio"] = len(largest_cc) / len(G.nodes)
 
             # 密度
-            stats['density'] = nx.density(G)
+            stats["density"] = nx.density(G)
 
             logger.info(f"ネットワーク統計計算完了: {stats['node_count']} ノード")
             return stats
 
         except Exception as e:
             logger.error(f"ネットワーク統計計算エラー: {e}")
-            return {'error': str(e)}
+            return {"error": str(e)}
 
 
 def create_bbox_from_center(lat: float, lon: float,

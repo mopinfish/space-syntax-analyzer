@@ -66,25 +66,25 @@ class SpaceSyntaxAnalyzer:
             # 主要道路ネットワーク分析
             if major_net is not None:
                 logger.info("主要道路ネットワーク分析中...")
-                results['major_network'] = self._analyze_network(major_net, "主要道路")
+                results["major_network"] = self._analyze_network(major_net, "主要道路")
             else:
-                results['major_network'] = None
+                results["major_network"] = None
 
             # 全道路ネットワーク分析
             if full_net is not None:
                 logger.info("全道路ネットワーク分析中...")
-                results['full_network'] = self._analyze_network(full_net, "全道路")
+                results["full_network"] = self._analyze_network(full_net, "全道路")
             else:
-                results['full_network'] = None
+                results["full_network"] = None
 
             # メタデータ追加
-            results['metadata'] = {
-                'query': str(place_query),
-                'network_type': self.network_type,
-                'width_threshold': self.width_threshold,
-                'has_major_network': major_net is not None,
-                'has_full_network': full_net is not None,
-                'analysis_status': 'success'
+            results["metadata"] = {
+                "query": str(place_query),
+                "network_type": self.network_type,
+                "width_threshold": self.width_threshold,
+                "has_major_network": major_net is not None,
+                "has_full_network": full_net is not None,
+                "analysis_status": "success"
             }
 
             logger.info("分析完了")
@@ -156,8 +156,8 @@ class SpaceSyntaxAnalyzer:
         """
         try:
             results = {
-                'network_name': network_name,
-                'analysis_status': 'success'
+                "network_name": network_name,
+                "analysis_status": "success"
             }
 
             # 基本統計
@@ -178,26 +178,26 @@ class SpaceSyntaxAnalyzer:
         except Exception as e:
             logger.error(f"ネットワーク分析エラー ({network_name}): {e}")
             return {
-                'network_name': network_name,
-                'analysis_status': 'error',
-                'error_message': str(e),
+                "network_name": network_name,
+                "analysis_status": "error",
+                "error_message": str(e),
                 **self._get_empty_metrics()
             }
 
     def _get_empty_metrics(self) -> dict[str, float]:
         """空の指標辞書を返す"""
         return {
-            'node_count': 0,
-            'edge_count': 0,
-            'avg_degree': 0.0,
-            'max_degree': 0,
-            'min_degree': 0,
-            'density': 0.0,
-            'alpha_index': 0.0,
-            'beta_index': 0.0,
-            'gamma_index': 0.0,
-            'avg_circuity': 1.0,
-            'road_density': 0.0
+            "node_count": 0,
+            "edge_count": 0,
+            "avg_degree": 0.0,
+            "max_degree": 0,
+            "min_degree": 0,
+            "density": 0.0,
+            "alpha_index": 0.0,
+            "beta_index": 0.0,
+            "gamma_index": 0.0,
+            "avg_circuity": 1.0,
+            "road_density": 0.0
         }
 
     def _create_empty_result(self, return_networks: bool,
@@ -213,13 +213,13 @@ class SpaceSyntaxAnalyzer:
             空の結果
         """
         empty_result = {
-            'major_network': None,
-            'full_network': None,
-            'metadata': {
-                'analysis_status': 'failed',
-                'error_message': error_msg,
-                'network_type': self.network_type,
-                'width_threshold': self.width_threshold
+            "major_network": None,
+            "full_network": None,
+            "metadata": {
+                "analysis_status": "failed",
+                "error_message": error_msg,
+                "network_type": self.network_type,
+                "width_threshold": self.width_threshold
             }
         }
 
@@ -280,8 +280,8 @@ class SpaceSyntaxAnalyzer:
             ]
 
             # メタデータセクション
-            if 'metadata' in results:
-                metadata = results['metadata']
+            if "metadata" in results:
+                metadata = results["metadata"]
                 lines.extend([
                     "【基本情報】",
                     f"  クエリ: {metadata.get('query', 'N/A')}",
@@ -292,18 +292,18 @@ class SpaceSyntaxAnalyzer:
                 ])
 
             # 主要道路ネットワーク
-            if results.get('major_network'):
-                major = results['major_network']
+            if results.get("major_network"):
+                major = results["major_network"]
                 lines.extend(self._format_network_section("主要道路ネットワーク", major))
 
             # 全道路ネットワーク
-            if results.get('full_network'):
-                full = results['full_network']
+            if results.get("full_network"):
+                full = results["full_network"]
                 lines.extend(self._format_network_section("全道路ネットワーク", full))
 
             # 比較セクション
-            if results.get('major_network') and results.get('full_network'):
-                lines.extend(self._format_comparison_section(results['major_network'], results['full_network']))
+            if results.get("major_network") and results.get("full_network"):
+                lines.extend(self._format_comparison_section(results["major_network"], results["full_network"]))
 
             lines.extend([
                 "="*60,
@@ -338,10 +338,10 @@ class SpaceSyntaxAnalyzer:
 
     def _format_comparison_section(self, major: dict[str, Any], full: dict[str, Any]) -> list[str]:
         """比較セクションをフォーマット"""
-        major_nodes = major.get('node_count', 0)
-        full_nodes = full.get('node_count', 0)
-        major_edges = major.get('edge_count', 0)
-        full_edges = full.get('edge_count', 0)
+        major_nodes = major.get("node_count", 0)
+        full_nodes = full.get("node_count", 0)
+        major_edges = major.get("edge_count", 0)
+        full_edges = full.get("edge_count", 0)
 
         node_ratio = (major_nodes / full_nodes * 100) if full_nodes > 0 else 0
         edge_ratio = (major_edges / full_edges * 100) if full_edges > 0 else 0
@@ -374,7 +374,7 @@ class SpaceSyntaxAnalyzer:
 
             if format_type.lower() == "csv":
                 df = self._results_to_dataframe(results)
-                df.to_csv(filepath, index=False, encoding='utf-8-sig')
+                df.to_csv(filepath, index=False, encoding="utf-8-sig")
 
             elif format_type.lower() in ["excel", "xlsx"]:
                 df = self._results_to_dataframe(results)
@@ -382,7 +382,7 @@ class SpaceSyntaxAnalyzer:
 
             elif format_type.lower() == "json":
                 import json
-                with open(filepath, 'w', encoding='utf-8') as f:
+                with open(filepath, "w", encoding="utf-8") as f:
                     json.dump(results, f, ensure_ascii=False, indent=2, default=str)
 
             else:
@@ -399,10 +399,10 @@ class SpaceSyntaxAnalyzer:
         """分析結果をDataFrameに変換"""
         data = []
 
-        for network_type in ['major_network', 'full_network']:
+        for network_type in ["major_network", "full_network"]:
             if results.get(network_type):
                 row = {
-                    'network_type': network_type,
+                    "network_type": network_type,
                     **results[network_type]
                 }
                 data.append(row)
