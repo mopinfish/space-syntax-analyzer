@@ -26,6 +26,11 @@ def setup_logging(level: str = "INFO", format_string: str | None = None) -> logg
     if format_string is None:
         format_string = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 
+    # 有効なログレベルのチェック
+    valid_levels = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
+    if level.upper() not in valid_levels:
+        level = 'INFO'  # デフォルトにフォールバック
+
     logging.basicConfig(
         level=getattr(logging, level.upper()),
         format=format_string,

@@ -250,7 +250,8 @@ class SpaceSyntaxAnalyzer:
             elif network_selection == "both":
                 return major_net, full_net
             else:
-                raise ValueError(f"不正なnetwork_selection: {network_selection}")
+                logger.error(f"不正なnetwork_selection: {network_selection}")
+                return None
 
         except Exception as e:
             logger.error(f"ネットワーク取得エラー: {e}")
@@ -408,29 +409,32 @@ class SpaceSyntaxAnalyzer:
 
         return pd.DataFrame(data)
 
+
     def visualize(self, major_net: nx.MultiDiGraph | None,
-                 full_net: nx.MultiDiGraph | None,
-                 results: dict[str, Any],
-                 save_path: str | None = None) -> bool:
-        """
-        ネットワークと分析結果を可視化
+                    full_net: nx.MultiDiGraph | None,
+                    results: dict[str, Any],
+                    save_path: str | None = None) -> bool:
+            """
+            ネットワークと分析結果を可視化
 
-        Args:
-            major_net: 主要道路ネットワーク
-            full_net: 全道路ネットワーク
-            results: 分析結果
-            save_path: 保存先パス
+            Args:
+                major_net: 主要道路ネットワーク
+                full_net: 全道路ネットワーク
+                results: 分析結果
+                save_path: 保存先パス
 
-        Returns:
-            可視化成功時True
-        """
-        try:
-            return self.visualizer.plot_networks_comparison(
-                major_net, full_net, results, save_path
-            )
-        except Exception as e:
-            logger.error(f"可視化エラー: {e}")
-            return False
+            Returns:
+                可視化成功時True
+            """
+            try:
+                # 実際のメソッド名 plot_network_comparison を使用
+                self.visualizer.plot_network_comparison(
+                    major_net, full_net, results, save_path
+                )
+                return True
+            except Exception as e:
+                logger.error(f"可視化エラー: {e}")
+                return False
 
 
 # 便利関数

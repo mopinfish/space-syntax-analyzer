@@ -216,19 +216,23 @@ class SpaceSyntaxMetrics:
                     'num_components': 0
                 }
 
-            # 弱連結成分の分析
-            weak_components = list(nx.weakly_connected_components(G))
-            largest_component_size = len(max(weak_components, key=len))
+            # 有向グラフの場合は弱連結成分、無向グラフの場合は連結成分を使用
+            if G.is_directed():
+                components = list(nx.weakly_connected_components(G))
+            else:
+                components = list(nx.connected_components(G))
+
+            largest_component_size = len(max(components, key=len))
 
             # 連結性指標
-            is_connected = len(weak_components) == 1
+            is_connected = len(components) == 1
             connectivity_ratio = largest_component_size / len(G.nodes)
 
             return {
                 'is_connected': is_connected,
                 'largest_component_size': largest_component_size,
                 'connectivity_ratio': float(connectivity_ratio),
-                'num_components': len(weak_components)
+                'num_components': len(components)
             }
 
         except Exception as e:
