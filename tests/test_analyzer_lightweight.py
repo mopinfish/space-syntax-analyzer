@@ -2,8 +2,8 @@
 SpaceSyntaxAnalyzerの軽量テスト（外部依存関係なし）
 """
 
-import sys
 import os
+import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -25,12 +25,15 @@ def test_imports_without_external_deps():
     
     try:
         # メインモジュールのインポートテスト
-        from space_syntax_analyzer.core.metrics import ConnectivityMetrics
-        from space_syntax_analyzer.utils.helpers import validate_graph, normalize_metrics
-        
         # 基本的な機能テスト
         import networkx as nx
-        
+
+        from space_syntax_analyzer.core.metrics import ConnectivityMetrics
+        from space_syntax_analyzer.utils.helpers import (
+            normalize_metrics,
+            validate_graph,
+        )
+
         # テスト用の簡単なグラフ（三角形）
         graph = nx.Graph()
         graph.add_node(1, x=0, y=0)
