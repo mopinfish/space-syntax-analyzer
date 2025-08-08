@@ -6,7 +6,12 @@ OSMnx v2.0完全対応版
 
 from space_syntax_analyzer import (
     SpaceSyntaxAnalyzer,
+    calculate_bbox_area,
+    check_osmnx_version,
     create_bbox_from_center,
+    debug_network_info,
+    estimate_processing_time,
+    generate_comparison_summary,
     setup_logging,
 )
 
@@ -91,8 +96,6 @@ def custom_area_analysis():
 
         if results['metadata']['analysis_status'] == 'success':
             # 分析サマリーの生成
-            from space_syntax_analyzer.utils.helpers import generate_comparison_summary
-            
             if results.get('major_network') and results.get('full_network'):
                 summary = generate_comparison_summary(
                     results['major_network'], results['full_network']
@@ -120,12 +123,10 @@ def batch_analysis_example():
 
     analyzer = SpaceSyntaxAnalyzer()
 
-    # 分析対象地域
+    # 分析対象地域（小さめの範囲に限定してエラーを避ける）
     locations = [
-        "Shibuya, Tokyo, Japan",
-        "Shinjuku, Tokyo, Japan", 
-        "Harajuku, Tokyo, Japan",
-        "Akihabara, Tokyo, Japan",
+        "Shibuya Station, Tokyo, Japan",
+        "Shinjuku Station, Tokyo, Japan", 
     ]
 
     all_results = {}
@@ -166,7 +167,7 @@ def network_export_example():
         # 原宿駅周辺のネットワーク取得
         print("原宿駅周辺のネットワークを取得中...")
         major_net, full_net = analyzer.get_network(
-            "Harajuku, Tokyo, Japan", "both"
+            "Harajuku Station, Tokyo, Japan", "both"
         )
 
         if major_net is not None or full_net is not None:
@@ -205,10 +206,9 @@ def comprehensive_analysis_example():
     configs = [
         {"network_type": "drive", "width_threshold": 6.0, "name": "車両用道路"},
         {"network_type": "walk", "width_threshold": 3.0, "name": "歩行者用道路"},
-        {"network_type": "bike", "width_threshold": 4.0, "name": "自転車用道路"},
     ]
     
-    location = "Shibuya, Tokyo, Japan"
+    location = "Shibuya Station, Tokyo, Japan"
     
     for config in configs:
         try:
@@ -240,11 +240,6 @@ def comprehensive_analysis_example():
 def debug_and_diagnostic_example():
     """デバッグと診断の例"""
     print("\n=== デバッグと診断例 ===")
-    
-    from space_syntax_analyzer.utils.helpers import (
-        check_osmnx_version,
-        debug_network_info,
-    )
 
     # バージョン情報の確認
     print("システム情報:")
@@ -283,16 +278,10 @@ def performance_test_example():
     
     import time
 
-    from space_syntax_analyzer.utils.helpers import (
-        calculate_bbox_area,
-        estimate_processing_time,
-    )
-
     # 異なるサイズのエリアでテスト
     test_areas = [
         {"name": "小エリア", "coords": (35.6812, 139.7671), "distance": 0.2},
         {"name": "中エリア", "coords": (35.6580, 139.7016), "distance": 0.5},
-        {"name": "大エリア", "coords": (35.6896, 139.6917), "distance": 1.0},
     ]
     
     analyzer = SpaceSyntaxAnalyzer()
@@ -329,15 +318,46 @@ if __name__ == "__main__":
     print("space-syntax-analyzer 最終修正版使用例を実行します")
     print("=" * 70)
 
-    # 各例を順次実行
-    basic_analysis_example()
-    visualization_example() 
-    custom_area_analysis()
-    batch_analysis_example()
-    network_export_example()
-    comprehensive_analysis_example()
-    debug_and_diagnostic_example()
-    performance_test_example()
+    # 各例を順次実行（エラーが起きても続行）
+    try:
+        basic_analysis_example()
+    except Exception as e:
+        print(f"基本分析例でエラー: {e}")
+
+    try:
+        visualization_example() 
+    except Exception as e:
+        print(f"可視化例でエラー: {e}")
+
+    try:
+        custom_area_analysis()
+    except Exception as e:
+        print(f"カスタムエリア分析例でエラー: {e}")
+
+    try:
+        batch_analysis_example()
+    except Exception as e:
+        print(f"バッチ分析例でエラー: {e}")
+
+    try:
+        network_export_example()
+    except Exception as e:
+        print(f"ネットワークエクスポート例でエラー: {e}")
+
+    try:
+        comprehensive_analysis_example()
+    except Exception as e:
+        print(f"包括的分析例でエラー: {e}")
+
+    try:
+        debug_and_diagnostic_example()
+    except Exception as e:
+        print(f"デバッグ診断例でエラー: {e}")
+
+    try:
+        performance_test_example()
+    except Exception as e:
+        print(f"パフォーマンステスト例でエラー: {e}")
 
     print("\n" + "=" * 70)
     print("すべての例の実行が完了しました")

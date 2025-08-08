@@ -5,6 +5,7 @@
 """
 
 import logging
+import time
 from typing import Any
 
 import networkx as nx
@@ -28,9 +29,11 @@ class NetworkManager:
         self.network_type = network_type
         self.width_threshold = width_threshold
 
-        # OSMnx設定
+        # OSMnx設定の改善
         ox.settings.use_cache = True
         ox.settings.log_console = False
+        ox.settings.timeout = 180  # タイムアウトを3分に設定
+        ox.settings.requests_timeout = 30  # HTTPリクエストタイムアウト
 
         logger.info(f"NetworkManager初期化: network_type={network_type}, width_threshold={width_threshold}")
 
@@ -46,25 +49,49 @@ class NetworkManager:
         Returns:
             取得したNetworkXグラフ、失敗時はNone
         """
-        try:
-            logger.info(f"bbox からネットワーク取得開始: {bbox}")
+        max_retries = 3
+        retry_delay = 2.0
 
-            # OSMnx v2.0対応のAPI呼び出し
-            G = ox.graph_from_bbox(
-                bbox=bbox,
-                network_type=self.network_type,
-                simplify=simplify,
-                retain_all=False,
-                truncate_by_edge=False
-            )
+        for attempt in range(max_retries):
+            try:
+                logger.info(f"bbox からネットワーク取得開始 (試行 {attempt + 1}/{max_retries}): {bbox}")
 
-            logger.info(f"ネットワーク取得成功: {len(G.nodes)} ノード, {len(G.edges)} エッジ")
-            return G
+                # bboxサイズの確認
+                left, bottom, right, top = bbox
+                area_size = (right - left) * (top - bottom)
 
-        except Exception as e:
-            logger.error(f"bbox ネットワーク取得エラー: {e}")
-            # 代替手段を試行
-            return self._fallback_bbox_to_point(bbox, simplify)
+                if area_size > 0.01:  # 大きすぎる場合は警告
+                    logger.warning(f"大きなエリア (面積: {area_size:.4f}度²) の取得を試行中...")
+
+                # OSMnx v2.0対応のAPI呼び出し
+                G = ox.graph_from_bbox(
+                    bbox=bbox,
+                    network_type=self.network_type,
+                    simplify=simplify,
+                    retain_all=False,
+                    truncate_by_edge=False
+                )
+
+                if G and len(G.nodes) > 0:
+                    logger.info(f"ネットワーク取得成功: {len(G.nodes)} ノード, {len(G.edges)} エッジ")
+                    return G
+                else:
+                    logger.warning("取得したネットワークが空です")
+                    return None
+
+            except Exception as e:
+                logger.warning(f"bbox ネットワーク取得エラー (試行 {attempt + 1}): {e}")
+
+                if attempt < max_retries - 1:
+                    logger.info(f"{retry_delay}秒後に再試行...")
+                    time.sleep(retry_delay)
+                    retry_delay *= 1.5  # 指数バックオフ
+                else:
+                    logger.error("bbox からのネットワーク取得が全試行で失敗")
+                    # 代替手段を試行
+                    return self._fallback_bbox_to_point(bbox, simplify)
+
+        return None
 
     def get_network_from_place(self, place_name: str,
                               simplify: bool = False) -> nx.MultiDiGraph | None:
@@ -78,22 +105,38 @@ class NetworkManager:
         Returns:
             取得したNetworkXグラフ、失敗時はNone
         """
-        try:
-            logger.info(f"地名 '{place_name}' からネットワーク取得開始")
+        max_retries = 3
+        retry_delay = 2.0
 
-            G = ox.graph_from_place(
-                place_name,
-                network_type=self.network_type,
-                simplify=simplify,
-                retain_all=False
-            )
+        for attempt in range(max_retries):
+            try:
+                logger.info(f"地名 '{place_name}' からネットワーク取得開始 (試行 {attempt + 1}/{max_retries})")
 
-            logger.info(f"地名からネットワーク取得成功: {len(G.nodes)} ノード, {len(G.edges)} エッジ")
-            return G
+                G = ox.graph_from_place(
+                    place_name,
+                    network_type=self.network_type,
+                    simplify=simplify,
+                    retain_all=False
+                )
 
-        except Exception as e:
-            logger.error(f"地名 '{place_name}' ネットワーク取得エラー: {e}")
-            return None
+                if G and len(G.nodes) > 0:
+                    logger.info(f"地名からネットワーク取得成功: {len(G.nodes)} ノード, {len(G.edges)} エッジ")
+                    return G
+                else:
+                    logger.warning("取得したネットワークが空です")
+                    return None
+
+            except Exception as e:
+                logger.warning(f"地名 '{place_name}' ネットワーク取得エラー (試行 {attempt + 1}): {e}")
+
+                if attempt < max_retries - 1:
+                    logger.info(f"{retry_delay}秒後に再試行...")
+                    time.sleep(retry_delay)
+                    retry_delay *= 1.5
+                else:
+                    logger.error(f"地名 '{place_name}' からのネットワーク取得が全試行で失敗")
+
+        return None
 
     def get_network_from_point(self, center_point: tuple[float, float],
                               distance: float, simplify: bool = False) -> nx.MultiDiGraph | None:
@@ -108,23 +151,39 @@ class NetworkManager:
         Returns:
             取得したNetworkXグラフ、失敗時はNone
         """
-        try:
-            logger.info(f"ポイント {center_point} (半径{distance}m) からネットワーク取得開始")
+        max_retries = 3
+        retry_delay = 2.0
 
-            G = ox.graph_from_point(
-                center_point=center_point,
-                dist=distance,
-                dist_type="bbox",
-                network_type=self.network_type,
-                simplify=simplify
-            )
+        for attempt in range(max_retries):
+            try:
+                logger.info(f"ポイント {center_point} (半径{distance}m) からネットワーク取得開始 (試行 {attempt + 1}/{max_retries})")
 
-            logger.info(f"ポイントからネットワーク取得成功: {len(G.nodes)} ノード, {len(G.edges)} エッジ")
-            return G
+                G = ox.graph_from_point(
+                    center_point=center_point,
+                    dist=distance,
+                    dist_type="bbox",
+                    network_type=self.network_type,
+                    simplify=simplify
+                )
 
-        except Exception as e:
-            logger.error(f"ポイント {center_point} ネットワーク取得エラー: {e}")
-            return None
+                if G and len(G.nodes) > 0:
+                    logger.info(f"ポイントからネットワーク取得成功: {len(G.nodes)} ノード, {len(G.edges)} エッジ")
+                    return G
+                else:
+                    logger.warning("取得したネットワークが空です")
+                    return None
+
+            except Exception as e:
+                logger.warning(f"ポイント {center_point} ネットワーク取得エラー (試行 {attempt + 1}): {e}")
+
+                if attempt < max_retries - 1:
+                    logger.info(f"{retry_delay}秒後に再試行...")
+                    time.sleep(retry_delay)
+                    retry_delay *= 1.5
+                else:
+                    logger.error(f"ポイント {center_point} からのネットワーク取得が全試行で失敗")
+
+        return None
 
     def _fallback_bbox_to_point(self, bbox: tuple[float, float, float, float],
                                simplify: bool) -> nx.MultiDiGraph | None:
@@ -141,6 +200,11 @@ class NetworkManager:
             lon_dist = abs(bbox[2] - bbox[0]) * 111000 * np.cos(np.radians(center_lat))
             dist = max(lat_dist, lon_dist) / 2
 
+            # 距離が大きすぎる場合は制限
+            if dist > 5000:  # 5km以上の場合
+                dist = 2000  # 2kmに制限
+                logger.warning("距離が大きすぎるため2kmに制限しました")
+
             logger.info(f"代替手段でネットワーク取得: 中心({center_lat:.4f}, {center_lon:.4f}), 距離{dist:.0f}m")
 
             return self.get_network_from_point((center_lat, center_lon), dist, simplify)
@@ -149,23 +213,15 @@ class NetworkManager:
             logger.error(f"代替手段でもエラー: {e}")
             return None
 
+    # 以下のメソッドは既存の実装をそのまま使用
     def safe_simplify_graph(self, G: nx.MultiDiGraph) -> nx.MultiDiGraph:
-        """
-        安全にグラフを単純化（既に単純化されている場合はそのまま返す）
-
-        Args:
-            G: 単純化対象のグラフ
-
-        Returns:
-            単純化されたグラフ
-        """
+        """グラフを安全に単純化"""
+        # 既存の実装
         try:
-            # 既に単純化されているかチェック
             if hasattr(G.graph, 'simplified') and G.graph.get('simplified', False):
                 logger.warning("グラフは既に単純化されています")
                 return G
 
-            # 単純化を実行
             logger.info("グラフを単純化中...")
             G_simplified = ox.simplify_graph(G)
             G_simplified.graph['simplified'] = True
@@ -175,21 +231,16 @@ class NetworkManager:
 
         except Exception as e:
             logger.error(f"グラフ単純化エラー: {e}")
-            # 単純化に失敗した場合は元のグラフを返す
             return G
 
     def filter_major_roads(self, G: nx.MultiDiGraph) -> nx.MultiDiGraph:
-        """
-        主要道路でフィルタリング
-
-        Args:
-            G: フィルタリング対象のグラフ
-
-        Returns:
-            主要道路のみのグラフ
-        """
+        """主要道路でフィルタリング"""
         try:
             logger.info("主要道路フィルタリング開始...")
+
+            if len(G.edges) == 0:
+                logger.warning("エッジが存在しないため、フィルタリングをスキップします")
+                return G
 
             # 主要道路の判定基準
             major_highway_types = {
@@ -206,7 +257,13 @@ class NetworkManager:
                 width = data.get('width')
                 if width:
                     try:
-                        width_val = float(width) if isinstance(width, int | float | str) else 0
+                        if isinstance(width, str):
+                            # "4.5"や"4.5;3.0"のような形式に対応
+                            width_str = width.split(';')[0].strip()
+                            width_val = float(width_str)
+                        else:
+                            width_val = float(width)
+
                         if width_val >= self.width_threshold:
                             is_major = True
                     except (ValueError, TypeError):
@@ -224,7 +281,12 @@ class NetworkManager:
                 lanes = data.get('lanes')
                 if lanes:
                     try:
-                        lanes_val = int(lanes) if isinstance(lanes, int | str) else 0
+                        if isinstance(lanes, str):
+                            lanes_str = lanes.split(';')[0].strip()
+                            lanes_val = int(lanes_str)
+                        else:
+                            lanes_val = int(lanes)
+
                         if lanes_val >= 2:
                             is_major = True
                     except (ValueError, TypeError):
@@ -249,17 +311,7 @@ class NetworkManager:
 
     def export_network(self, G: nx.MultiDiGraph, filepath: str,
                       format_type: str = "graphml") -> bool:
-        """
-        ネットワークをファイルに出力
-
-        Args:
-            G: 出力するグラフ
-            filepath: 出力先パス
-            format_type: ファイル形式 ("graphml", "geojson", "shapefile")
-
-        Returns:
-            出力成功時True、失敗時False
-        """
+        """ネットワークをファイルに出力"""
         try:
             logger.info(f"ネットワーク出力開始: {filepath} ({format_type})")
 
@@ -285,15 +337,7 @@ class NetworkManager:
             return False
 
     def calculate_network_stats(self, G: nx.MultiDiGraph) -> dict[str, Any]:
-        """
-        ネットワークの基本統計を計算
-
-        Args:
-            G: 統計を計算するグラフ
-
-        Returns:
-            統計情報の辞書
-        """
+        """ネットワークの基本統計を計算"""
         try:
             stats = {}
 
