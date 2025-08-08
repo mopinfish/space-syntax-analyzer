@@ -55,7 +55,7 @@ def calculate_graph_bounds(
         境界座標 (min_x, min_y, max_x, max_y) または None
     """
     try:
-        coordinates = []
+        coordinates: list[tuple[float, float]] = []
         for _, data in graph.nodes(data=True):
             if 'x' in data and 'y' in data:
                 coordinates.append((data['x'], data['y']))
@@ -67,7 +67,7 @@ def calculate_graph_bounds(
         min_x, min_y = coords_array.min(axis=0)
         max_x, max_y = coords_array.max(axis=0)
 
-        return (min_x, min_y, max_x, max_y)
+        return (float(min_x), float(min_y), float(max_x), float(max_y))
 
     except Exception as e:
         logger.error(f"境界計算エラー: {e}")
@@ -75,8 +75,8 @@ def calculate_graph_bounds(
 
 
 def normalize_metrics(
-    metrics: Dict[str, Any], reference_values: Optional[Dict[str, float]] = None
-) -> Dict[str, Any]:
+    metrics: dict[str, Any], reference_values: dict[str, float] | None = None
+) -> dict[str, Any]:
     """
     指標値を正規化
 
@@ -90,7 +90,7 @@ def normalize_metrics(
     normalized = metrics.copy()
 
     # デフォルトの参照値
-    default_references = {
+    default_references: dict[str, float] = {
         'alpha_index': 100.0,
         'gamma_index': 100.0,
         'beta_index': 5.0,
@@ -103,7 +103,7 @@ def normalize_metrics(
     for key, value in metrics.items():
         if key in default_references and isinstance(value, (int, float)):
             ref_value = default_references[key]
-            normalized[f"{key}_normalized"] = min(value / ref_value, 1.0)
+            normalized[f"{key}_normalized"] = min(float(value) / ref_value, 1.0)
 
     return normalized
 
@@ -134,8 +134,8 @@ def classify_network_type(metrics: dict[str, Any]) -> str:
 
 
 def generate_comparison_summary(
-    major_results: Dict[str, Any], full_results: Dict[str, Any]
-) -> Dict[str, str]:
+    major_results: dict[str, Any], full_results: dict[str, Any]
+) -> dict[str, str]:
     """
     主要道路と全道路の比較サマリーを生成
 
@@ -146,11 +146,11 @@ def generate_comparison_summary(
     Returns:
         比較サマリー
     """
-    summary = {}
+    summary: dict[str, str] = {}
 
     # 回遊性の変化
-    alpha_change = full_results.get('alpha_index', 0) - major_results.get(
-        'alpha_index', 0
+    alpha_change = float(full_results.get('alpha_index', 0)) - float(
+        major_results.get('alpha_index', 0)
     )
     if alpha_change > 5:
         summary['connectivity'] = "細街路により回遊性が大幅に向上"
@@ -162,8 +162,8 @@ def generate_comparison_summary(
         summary['connectivity'] = "細街路による回遊性への影響は軽微"
 
     # アクセス性の変化
-    distance_change = full_results.get('avg_shortest_path', 0) - major_results.get(
-        'avg_shortest_path', 0
+    distance_change = float(full_results.get('avg_shortest_path', 0)) - float(
+        major_results.get('avg_shortest_path', 0)
     )
     if distance_change < -50:
         summary['accessibility'] = "細街路によりアクセス性が大幅に向上"
@@ -175,8 +175,8 @@ def generate_comparison_summary(
         summary['accessibility'] = "細街路によるアクセス性への影響は軽微"
 
     # 迂回性の変化
-    circuity_change = full_results.get('avg_circuity', 0) - major_results.get(
-        'avg_circuity', 0
+    circuity_change = float(full_results.get('avg_circuity', 0)) - float(
+        major_results.get('avg_circuity', 0)
     )
     if circuity_change < -0.2:
         summary['circuity'] = "細街路により迂回性が改善"
@@ -195,7 +195,7 @@ def generate_comparison_summary(
 
 def create_bbox_from_center(
     center_lat: float, center_lon: float, distance_km: float = 1.0
-) -> Tuple[float, float, float, float]:
+) -> tuple[float, float, float, float]:
     """
     中心点から指定距離の境界ボックスを作成
 

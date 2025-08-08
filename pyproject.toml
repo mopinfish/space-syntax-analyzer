@@ -128,9 +128,13 @@ exclude_lines = [
     "@(abc\\.)?abstractmethod",
 ]
 
+# Ruff: 基本設定（ここは従来どおり）
 [tool.ruff]
 target-version = "py39"
 line-length = 88
+
+# Ruff: ルール関連設定は lint セクション配下に移動
+[tool.ruff.lint]
 select = [
     "E",  # pycodestyle errors
     "W",  # pycodestyle warnings
@@ -146,5 +150,5 @@ ignore = [
     "C901",  # too complex
 ]
 
-[tool.ruff.per-file-ignores]
+[tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
