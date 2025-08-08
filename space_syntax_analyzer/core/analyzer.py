@@ -9,7 +9,6 @@ import logging
 import time
 from typing import Any
 
-import matplotlib.pyplot as plt
 import networkx as nx
 import pandas as pd
 
@@ -682,17 +681,42 @@ Space Syntax 分析エラーレポート
                            full_net: nx.MultiDiGraph | None,
                            results: dict[str, Any],
                            save_path: str | None = None):
-        """基本的な可視化（フォールバック）"""
+        """基本的な可視化（フォールバック）- エラー対応版"""
         try:
+            import matplotlib.pyplot as plt
+
+            # resultsが辞書でない場合の防御的プログラミング
+            if not isinstance(results, dict):
+                logger.warning(f"結果が辞書形式ではありません: {type(results)}")
+                results = {"metadata": {"query": "Unknown"}}
+
+            # metadataの安全な取得
+            metadata = results.get("metadata", {})
+            if not isinstance(metadata, dict):
+                metadata = {}
+
+            query_name = metadata.get("query", "Unknown Location")
+
             fig, axes = plt.subplots(2, 2, figsize=(15, 12))
-            fig.suptitle(f"Space Syntax 分析結果: {results.get('metadata', {}).get('query', 'Unknown')}", fontsize=16)
+            fig.suptitle(f"Space Syntax 分析結果: {query_name}", fontsize=16)
 
             # プロットの実装（簡略版）
-            for i, ax in enumerate(axes.flat):
-                ax.text(0.5, 0.5, f"プロット {i+1}", ha="center", va="center", transform=ax.transAxes)
+            plot_titles = [
+                "主要道路ネットワーク", "全道路ネットワーク",
+                "ネットワーク比較", "統計情報"
+            ]
+
+            for i, (ax, title) in enumerate(zip(axes.flat, plot_titles, strict=False)):
+                ax.text(0.5, 0.5, f"{title}\n(プロット {i+1})",
+                       ha="center", va="center", transform=ax.transAxes,
+                       fontsize=12, bbox={"boxstyle": "round,pad=0.3", "facecolor": "lightblue"})
+                ax.set_title(title)
+                ax.set_xticks([])
+                ax.set_yticks([])
 
             plt.tight_layout()
 
+            # ファイル保存の処理
             if save_path:
                 plt.savefig(save_path, dpi=300, bbox_inches="tight")
                 logger.info(f"可視化結果を保存: {save_path}")
@@ -701,6 +725,25 @@ Space Syntax 分析エラーレポート
 
         except Exception as e:
             logger.error(f"基本可視化エラー: {e}")
+            # フォールバック処理 - 最小限のプロット
+            try:
+                import matplotlib.pyplot as plt
+                fig, ax = plt.subplots(1, 1, figsize=(8, 6))
+                ax.text(0.5, 0.5, f"可視化エラーが発生しました\n{str(e)[:100]}...",
+                       ha="center", va="center", transform=ax.transAxes,
+                       fontsize=10, bbox={"boxstyle": "round,pad=0.3", "facecolor": "lightcoral"})
+                ax.set_title("Space Syntax 分析 - エラー")
+                ax.set_xticks([])
+                ax.set_yticks([])
+
+                if save_path:
+                    plt.savefig(save_path, dpi=300, bbox_inches="tight")
+
+                plt.show()
+                plt.close()
+            except Exception as nested_e:
+                logger.error(f"フォールバック可視化も失敗: {nested_e}")
+                raise
 
     def export_results(self, results: dict[str, Any], filepath: str,
                       format_type: str = "csv") -> bool:
@@ -728,6 +771,7 @@ Space Syntax 分析エラーレポート
 
             elif format_type.lower() == "json":
                 import json
+
                 # NetworkXオブジェクトを除去した結果を作成
                 clean_results = {}
                 for key, value in results.items():

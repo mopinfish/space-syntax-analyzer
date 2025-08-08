@@ -1,6 +1,6 @@
 # demo_fixed.py
 """
-修正版 Space Syntax Analyzer デモスクリプト（最終版）
+修正版 Space Syntax Analyzer デモスクリプト（可視化エラー対応版）
 
 既存のプロジェクト構造に合わせて、堅牢な分析機能を提供
 """
@@ -8,8 +8,8 @@
 import logging
 import os
 import sys
-from pathlib import Path
 import time
+from pathlib import Path
 
 # プロジェクトルートをパスに追加
 sys.path.insert(0, str(Path(__file__).parent))
@@ -32,7 +32,7 @@ def demo_robust_basic_analysis():
     try:
         # 既存のspace_syntax_analyzerモジュールを使用
         from space_syntax_analyzer.core.analyzer import SpaceSyntaxAnalyzer
-        
+
         # アナライザーの初期化
         analyzer = SpaceSyntaxAnalyzer()
         
@@ -61,12 +61,19 @@ def demo_robust_basic_analysis():
                         print(f"   • {suggestion}")
                     continue
                 
+                # metadataチェック
+                metadata = results.get('metadata', {})
+                if metadata.get('analysis_status') != 'success':
+                    print(f"❌ 分析失敗: {metadata.get('error_message', '不明なエラー')}")
+                    continue
+                
                 # 成功
                 successful_analysis = (location, results)
                 break
                 
             except Exception as e:
                 print(f"❌ 例外発生: {e}")
+                logger.error(f"分析例外 ({location}): {e}")
                 continue
         
         if successful_analysis:
@@ -111,16 +118,35 @@ def demo_robust_basic_analysis():
                 
             except Exception as e:
                 print(f"⚠️  エクスポートエラー: {e}")
+                logger.error(f"エクスポートエラー: {e}")
             
-            # 可視化試行
+            # 可視化試行（修正版）
             try:
                 print("\n📊 可視化を試行中...")
                 # ネットワーク取得
-                major_net, full_net = analyzer.get_network(location, "both")
+                network_result = analyzer.get_network(location, "both")
+                
+                # ネットワーク取得結果の検証
+                if isinstance(network_result, tuple) and len(network_result) == 2:
+                    major_net, full_net = network_result
+                elif network_result is not None:
+                    # 単一ネットワークの場合
+                    major_net = network_result
+                    full_net = None
+                else:
+                    major_net = None
+                    full_net = None
                 
                 if major_net or full_net:
+                    # 結果の型チェック
+                    if not isinstance(results, dict):
+                        logger.warning(f"結果が辞書形式ではありません: {type(results)}")
+                        vis_results = {"metadata": {"query": location}}
+                    else:
+                        vis_results = results
+                    
                     vis_success = analyzer.visualize(
-                        major_net, full_net, results,
+                        major_net, full_net, vis_results,
                         str(output_dir / f"visualization_{location.replace(',', '_').replace(' ', '_')}.png")
                     )
                     if vis_success:
@@ -132,6 +158,21 @@ def demo_robust_basic_analysis():
                 
             except Exception as e:
                 print(f"⚠️  可視化エラー: {e}")
+                logger.error(f"可視化処理エラー: {e}")
+                
+                # デバッグ情報の出力
+                logger.debug(f"Results type: {type(results)}")
+                logger.debug(f"Results content: {str(results)[:200]}")
+                
+                # 簡易可視化の試行
+                try:
+                    print("📊 簡易可視化を試行...")
+                    simple_results = {"metadata": {"query": location}}
+                    analyzer._basic_visualization(None, None, simple_results, None)
+                    print("✅ 簡易可視化成功")
+                except Exception as simple_e:
+                    print(f"❌ 簡易可視化も失敗: {simple_e}")
+                    logger.error(f"簡易可視化エラー: {simple_e}")
         else:
             print("❌ すべての地名で分析に失敗しました")
             print("💡 座標指定での分析をお試しください")
@@ -145,6 +186,7 @@ def demo_robust_basic_analysis():
         print("   pip install osmnx networkx pandas matplotlib numpy")
     except Exception as e:
         print(f"❌ 予期しないエラー: {e}")
+        logger.error(f"デモ実行エラー: {e}")
 
 
 def demo_coordinate_analysis():
@@ -181,6 +223,12 @@ def demo_coordinate_analysis():
                     print(f"❌ 分析エラー: {results.get('error_message', '不明')}")
                     continue
                 
+                # metadataチェック
+                metadata = results.get('metadata', {})
+                if metadata.get('analysis_status') != 'success':
+                    print(f"❌ 分析失敗: {metadata.get('error_message', '不明なエラー')}")
+                    continue
+                
                 print(f"✅ 分析成功")
                 
                 # 簡易レポート表示
@@ -209,10 +257,12 @@ def demo_coordinate_analysis():
                 
             except Exception as e:
                 print(f"❌ 分析エラー: {e}")
+                logger.error(f"座標分析エラー ({description}): {e}")
                 continue
     
     except Exception as e:
         print(f"❌ 座標分析デモエラー: {e}")
+        logger.error(f"座標分析デモエラー: {e}")
 
 
 def demo_error_handling():
@@ -247,13 +297,20 @@ def demo_error_handling():
                     for suggestion in results.get('suggestions', []):
                         print(f"     • {suggestion}")
                 else:
-                    print(f"⚠️  予期せず成功しました（これは正常な場合もあります）")
+                    metadata = results.get('metadata', {})
+                    if metadata.get('analysis_status') == 'failed':
+                        print(f"✅ エラーが適切に処理されました")
+                        print(f"   エラー内容: {metadata.get('error_message', '不明')}")
+                    else:
+                        print(f"⚠️  予期せず成功しました（これは正常な場合もあります）")
                     
             except Exception as e:
                 print(f"❌ 予期しない例外: {e}")
+                logger.error(f"エラーハンドリングテスト例外 ({problematic_input}): {e}")
     
     except Exception as e:
         print(f"❌ エラーハンドリングデモエラー: {e}")
+        logger.error(f"エラーハンドリングデモエラー: {e}")
 
 
 def demo_performance_comparison():
@@ -289,7 +346,7 @@ def demo_performance_comparison():
                     # NetworkManagerを直接使用
                     network = analyzer.network_manager.get_network_from_point((lat, lon), radius)
                     if network:
-                        results = analyzer._analyze_network_safe(network, f"テスト({radius}m)", ["basic"])
+                        results = analyzer._analyze_network(network, f"テスト({radius}m)")
                         results['location'] = f"({lat}, {lon})"
                     else:
                         raise Exception("ネットワーク取得失敗")
@@ -326,6 +383,7 @@ def demo_performance_comparison():
                     
             except Exception as e:
                 print(f"   ❌ エラー: {e}")
+                logger.error(f"パフォーマンステストエラー ({description}): {e}")
         
         # パフォーマンス結果サマリー
         if results_summary:
@@ -341,6 +399,7 @@ def demo_performance_comparison():
     
     except Exception as e:
         print(f"❌ パフォーマンス比較デモエラー: {e}")
+        logger.error(f"パフォーマンス比較デモエラー: {e}")
 
 
 def check_dependencies():

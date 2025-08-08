@@ -7,10 +7,12 @@ space_syntax_analyzer/utils/helpers.py
 import logging
 import platform
 import sys
+from pathlib import Path
 from typing import Any
 
 import networkx as nx
 import numpy as np
+import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -592,3 +594,128 @@ def get_memory_usage_info() -> dict[str, str]:
             "vms": f"Error: {e}",
             "percent": f"Error: {e}"
         }
+
+
+def export_summary_table(data: dict[str, Any], filepath: str, format_type: str = "csv") -> bool:
+    """
+    サマリーテーブルをファイルに出力
+
+    Args:
+        data: 出力するデータ
+        filepath: 出力先ファイルパス
+        format_type: 出力形式 ("csv", "excel", "json")
+
+    Returns:
+        出力成功時True
+    """
+    try:
+        # データをDataFrameに変換
+        if isinstance(data, dict):
+            # 辞書の場合は1行のDataFrameとして処理
+            if all(isinstance(v, int | float | str | bool | type(None)) for v in data.values()):
+                # フラットな辞書の場合
+                df = pd.DataFrame([data])
+            else:
+                # ネストした辞書の場合は列として展開
+                flattened = _flatten_dict(data)
+                df = pd.DataFrame([flattened])
+        elif isinstance(data, list):
+            # リストの場合
+            df = pd.DataFrame(data)
+        else:
+            # その他の場合はそのままDataFrameに
+            df = pd.DataFrame(data)
+
+        # ファイル出力
+        filepath_obj = Path(filepath)
+        filepath_obj.parent.mkdir(parents=True, exist_ok=True)
+
+        if format_type.lower() == "csv":
+            df.to_csv(filepath, index=False, encoding="utf-8-sig")
+        elif format_type.lower() in ["excel", "xlsx"]:
+            df.to_excel(filepath, index=False)
+        elif format_type.lower() == "json":
+            df.to_json(filepath, orient="records", force_ascii=False, indent=2)
+        else:
+            raise ValueError(f"サポートされていないフォーマット: {format_type}")
+
+        logger.info(f"サマリーテーブルを出力: {filepath}")
+        return True
+
+    except Exception as e:
+        logger.error(f"サマリーテーブル出力エラー: {e}")
+        return False
+
+
+def _flatten_dict(d: dict, parent_key: str = "", separator: str = "_") -> dict:
+    """
+    ネストした辞書をフラット化
+
+    Args:
+        d: フラット化する辞書
+        parent_key: 親キー
+        separator: キーの区切り文字
+
+    Returns:
+        フラット化された辞書
+    """
+    items = []
+    for k, v in d.items():
+        new_key = f"{parent_key}{separator}{k}" if parent_key else k
+        if isinstance(v, dict):
+            items.extend(_flatten_dict(v, new_key, separator).items())
+        else:
+            items.append((new_key, v))
+    return dict(items)
+
+
+def create_area_summary(results: dict[str, Any]) -> dict[str, Any]:
+    """
+    面積関連のサマリーを作成
+
+    Args:
+        results: 分析結果
+
+    Returns:
+        面積サマリー
+    """
+    summary = {
+        "area_ha": 0.0,
+        "area_km2": 0.0,
+        "network_density": 0.0,
+        "coverage_ratio": 0.0
+    }
+
+    try:
+        # 面積情報の取得
+        area_ha = results.get("area_ha", 0.0)
+        summary["area_ha"] = area_ha
+        summary["area_km2"] = area_ha / 100.0  # ヘクタールから平方キロメートルに変換
+
+        # ネットワーク密度の計算
+        major_network = results.get("major_network", {})
+        if major_network and area_ha > 0:
+            edge_count = major_network.get("edge_count", 0)
+            total_length = major_network.get("total_length", 0)
+
+            if total_length > 0:
+                # 道路長密度 (km/km²)
+                summary["network_density"] = (total_length / 1000) / (area_ha / 100)
+            elif edge_count > 0:
+                # エッジ密度 (edges/km²)
+                summary["network_density"] = edge_count / (area_ha / 100)
+
+        # カバレッジ比率（主要道路vs全道路）
+        full_network = results.get("full_network", {})
+        if major_network and full_network:
+            major_edges = major_network.get("edge_count", 0)
+            full_edges = full_network.get("edge_count", 0)
+
+            if full_edges > 0:
+                summary["coverage_ratio"] = major_edges / full_edges
+
+    except Exception as e:
+        logger.error(f"面積サマリー作成エラー: {e}")
+        summary["error"] = str(e)
+
+    return summary
