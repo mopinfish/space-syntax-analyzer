@@ -1,10 +1,12 @@
+# space_syntax_analyzer/core/network.py（拡張版）
 """
-ネットワーク管理モジュール (OSMnx v2.0対応版)
+ネットワーク管理モジュール (堅牢化版)
 
-このモジュールはOpenStreetMapからの道路ネットワークデータの取得と処理を担当します。
+地名処理エラーに対する堅牢な対処機能を追加
 """
 
 import logging
+import re
 import time
 from typing import Any
 
@@ -16,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 class NetworkManager:
-    """ネットワーク取得・管理クラス (OSMnx v2.0対応)"""
+    """ネットワーク取得・管理クラス (堅牢化版)"""
 
     def __init__(self, network_type: str = "drive", width_threshold: float = 6.0):
         """
@@ -36,6 +38,150 @@ class NetworkManager:
         ox.settings.requests_timeout = 30  # HTTPリクエストタイムアウト
 
         logger.info(f"NetworkManager初期化: network_type={network_type}, width_threshold={width_threshold}")
+
+    def get_network_from_place(self, place_name: str,
+                              simplify: bool = False) -> nx.MultiDiGraph | None:
+        """
+        地名からネットワークを取得（堅牢版）
+
+        Args:
+            place_name: 地名
+            simplify: グラフを単純化するかどうか
+
+        Returns:
+            取得したNetworkXグラフ、失敗時はNone
+        """
+        logger.info(f"地名 '{place_name}' からネットワーク取得開始")
+
+        # 地名前処理による複数候補の生成
+        place_candidates = self._preprocess_place_name(place_name)
+
+        # 複数戦略での取得試行
+        strategies = [
+            self._strategy_direct_place,
+            self._strategy_coordinate_based,
+            self._strategy_administrative_area,
+        ]
+
+        for strategy in strategies:
+            for candidate in place_candidates:
+                try:
+                    logger.info(f"試行中: {strategy.__name__} - '{candidate}'")
+                    result = strategy(candidate, simplify)
+                    if result and len(result.nodes) > 0:
+                        logger.info(f"ネットワーク取得成功: {len(result.nodes)}ノード")
+                        return result
+                except Exception as e:
+                    logger.warning(f"戦略 {strategy.__name__} 失敗 ('{candidate}'): {e}")
+                    continue
+
+        logger.error(f"地名 '{place_name}' からのネットワーク取得が全戦略で失敗")
+        return None
+
+    def _preprocess_place_name(self, place_name: str) -> list[str]:
+        """
+        地名の前処理（複数候補生成）
+
+        Parameters
+        ----------
+        place_name : str
+            元の地名
+
+        Returns
+        -------
+        list
+            処理済み地名候補リスト
+        """
+        candidates = [place_name]  # 元の地名も保持
+
+        # 「駅」を除去
+        if "駅" in place_name or "Station" in place_name:
+            no_station = re.sub(r"[駅Station]\s*", "", place_name)
+            candidates.append(no_station.strip())
+
+        # 区名を追加（東京の場合）
+        if any(keyword in place_name.lower() for keyword in ["tokyo", "東京"]):
+            base_name = place_name.replace("Station", "").replace("駅", "").strip()
+            base_name = re.sub(r",\s*[Tt]okyo.*$", "", base_name)
+            base_name = re.sub(r",?\s*東京.*$", "", base_name)
+
+            if base_name:
+                # 区名候補
+                ward_candidates = [
+                    f"{base_name}区, 東京",
+                    f"{base_name}-ku, Tokyo",
+                    f"{base_name}, Tokyo",
+                    f"{base_name}, Japan"
+                ]
+                candidates.extend(ward_candidates)
+
+        # 重複除去
+        unique_candidates = []
+        for candidate in candidates:
+            if candidate and candidate not in unique_candidates:
+                unique_candidates.append(candidate.strip())
+
+        logger.debug(f"地名候補生成: {unique_candidates}")
+        return unique_candidates
+
+    def _strategy_direct_place(self, place_name: str, simplify: bool) -> nx.MultiDiGraph | None:
+        """戦略1: 直接的な地名での取得"""
+        max_retries = 3
+        retry_delay = 2.0
+
+        for attempt in range(max_retries):
+            try:
+                logger.info(f"地名 '{place_name}' からネットワーク取得開始 (試行 {attempt + 1}/{max_retries})")
+
+                G = ox.graph_from_place(
+                    place_name,
+                    network_type=self.network_type,
+                    simplify=simplify,
+                    retain_all=False
+                )
+
+                if G and len(G.nodes) > 0:
+                    return G
+                else:
+                    logger.warning("取得したネットワークが空です")
+                    return None
+
+            except Exception as e:
+                logger.warning(f"地名 '{place_name}' ネットワーク取得エラー (試行 {attempt + 1}): {e}")
+
+                if attempt < max_retries - 1:
+                    logger.info(f"{retry_delay}秒後に再試行...")
+                    time.sleep(retry_delay)
+                    retry_delay *= 1.5
+                else:
+                    logger.error(f"地名 '{place_name}' からのネットワーク取得が全試行で失敗")
+
+        return None
+
+    def _strategy_coordinate_based(self, place_name: str, simplify: bool) -> nx.MultiDiGraph | None:
+        """戦略2: 座標ベースでの取得"""
+        try:
+            # ジオコーディング
+            location = ox.geocode(place_name)
+            if location:
+                lat, lon = location
+                return self.get_network_from_point((lat, lon), 1000, simplify)
+        except Exception as e:
+            logger.debug(f"座標ベース取得失敗: {e}")
+        return None
+
+    def _strategy_administrative_area(self, place_name: str, simplify: bool) -> nx.MultiDiGraph | None:
+        """戦略3: 行政区域での取得"""
+        try:
+            # 行政境界の取得試行
+            boundary = ox.geocode_to_gdf(place_name)
+            if not boundary.empty:
+                # 境界の中心点を取得
+                centroid = boundary.geometry.centroid.iloc[0]
+                return self.get_network_from_point((centroid.y, centroid.x), 1500, simplify)
+        except Exception as e:
+            logger.debug(f"行政区域取得失敗: {e}")
+        return None
 
     def get_network_from_bbox(self, bbox: tuple[float, float, float, float],
                              simplify: bool = False) -> nx.MultiDiGraph | None:
@@ -90,51 +236,6 @@ class NetworkManager:
                     logger.error("bbox からのネットワーク取得が全試行で失敗")
                     # 代替手段を試行
                     return self._fallback_bbox_to_point(bbox, simplify)
-
-        return None
-
-    def get_network_from_place(self, place_name: str,
-                              simplify: bool = False) -> nx.MultiDiGraph | None:
-        """
-        地名からネットワークを取得
-
-        Args:
-            place_name: 地名
-            simplify: グラフを単純化するかどうか
-
-        Returns:
-            取得したNetworkXグラフ、失敗時はNone
-        """
-        max_retries = 3
-        retry_delay = 2.0
-
-        for attempt in range(max_retries):
-            try:
-                logger.info(f"地名 '{place_name}' からネットワーク取得開始 (試行 {attempt + 1}/{max_retries})")
-
-                G = ox.graph_from_place(
-                    place_name,
-                    network_type=self.network_type,
-                    simplify=simplify,
-                    retain_all=False
-                )
-
-                if G and len(G.nodes) > 0:
-                    logger.info(f"地名からネットワーク取得成功: {len(G.nodes)} ノード, {len(G.edges)} エッジ")
-                    return G
-                else:
-                    logger.warning("取得したネットワークが空です")
-                    return None
-
-            except Exception as e:
-                logger.warning(f"地名 '{place_name}' ネットワーク取得エラー (試行 {attempt + 1}): {e}")
-
-                if attempt < max_retries - 1:
-                    logger.info(f"{retry_delay}秒後に再試行...")
-                    time.sleep(retry_delay)
-                    retry_delay *= 1.5
-                else:
-                    logger.error(f"地名 '{place_name}' からのネットワーク取得が全試行で失敗")
 
         return None
 
@@ -213,18 +314,16 @@ class NetworkManager:
             logger.error(f"代替手段でもエラー: {e}")
             return None
 
-    # 以下のメソッドは既存の実装をそのまま使用
     def safe_simplify_graph(self, G: nx.MultiDiGraph) -> nx.MultiDiGraph:
         """グラフを安全に単純化"""
-        # 既存の実装
         try:
-            if hasattr(G.graph, 'simplified') and G.graph.get('simplified', False):
+            if hasattr(G.graph, "simplified") and G.graph.get("simplified", False):
                 logger.warning("グラフは既に単純化されています")
                 return G
 
             logger.info("グラフを単純化中...")
             G_simplified = ox.simplify_graph(G)
-            G_simplified.graph['simplified'] = True
+            G_simplified.graph["simplified"] = True
 
             logger.info(f"グラフ単純化完了: {len(G.nodes)} -> {len(G_simplified.nodes)} ノード")
             return G_simplified
@@ -244,8 +343,8 @@ class NetworkManager:
 
             # 主要道路の判定基準
             major_highway_types = {
-                'motorway', 'trunk', 'primary', 'secondary',
-                'motorway_link', 'trunk_link', 'primary_link', 'secondary_link'
+                "motorway", "trunk", "primary", "secondary",
+                "motorway_link", "trunk_link", "primary_link", "secondary_link"
             }
 
             major_edges = []
@@ -254,12 +353,12 @@ class NetworkManager:
                 is_major = False
 
                 # 道路幅による判定
-                width = data.get('width')
+                width = data.get("width")
                 if width:
                     try:
                         if isinstance(width, str):
                             # "4.5"や"4.5;3.0"のような形式に対応
-                            width_str = width.split(';')[0].strip()
+                            width_str = width.split(";")[0].strip()
                             width_val = float(width_str)
                         else:
                             width_val = float(width)
@@ -270,19 +369,19 @@ class NetworkManager:
                         pass
 
                 # 道路種別による判定
-                highway = data.get('highway', '')
+                highway = data.get("highway", "")
                 if isinstance(highway, list):
-                    highway = highway[0] if highway else ''
+                    highway = highway[0] if highway else ""
 
                 if highway in major_highway_types:
                     is_major = True
 
                 # レーン数による判定
-                lanes = data.get('lanes')
+                lanes = data.get("lanes")
                 if lanes:
                     try:
                         if isinstance(lanes, str):
-                            lanes_str = lanes.split(';')[0].strip()
+                            lanes_str = lanes.split(";")[0].strip()
                             lanes_val = int(lanes_str)
                         else:
                             lanes_val = int(lanes)
@@ -308,6 +407,66 @@ class NetworkManager:
         except Exception as e:
             logger.error(f"主要道路フィルタリングエラー: {e}")
             return G
+
+    def calculate_network_stats(self, G: nx.MultiDiGraph) -> dict[str, Any]:
+        """ネットワークの基本統計を計算"""
+        try:
+            stats = {}
+
+            # 基本情報
+            stats["node_count"] = len(G.nodes)
+            stats["edge_count"] = len(G.edges)
+
+            if len(G.nodes) == 0:
+                return stats
+
+            # 次数統計
+            degrees = dict(G.degree())
+            stats["avg_degree"] = np.mean(list(degrees.values()))
+            stats["max_degree"] = max(degrees.values())
+            stats["min_degree"] = min(degrees.values())
+
+            # 連結性
+            if nx.is_connected(G.to_undirected()):
+                stats["is_connected"] = True
+                stats["connectivity_ratio"] = 1.0
+            else:
+                # 最大連結成分
+                largest_cc = max(nx.weakly_connected_components(G), key=len)
+                stats["is_connected"] = False
+                stats["largest_component_size"] = len(largest_cc)
+                stats["connectivity_ratio"] = len(largest_cc) / len(G.nodes)
+
+            # 密度
+            stats["density"] = nx.density(G)
+
+            logger.info(f"ネットワーク統計計算完了: {stats['node_count']} ノード")
+            return stats
+
+        except Exception as e:
+            logger.error(f"ネットワーク統計計算エラー: {e}")
+            return {"error": str(e)}
+
+    def calculate_area_ha(self, G: nx.MultiDiGraph) -> float:
+        """
+        ネットワークがカバーする面積を計算（ヘクタール）
+
+        Parameters
+        ----------
+        G : nx.MultiDiGraph
+            ネットワーク
+
+        Returns
+        -------
+        float
+            面積（ヘクタール）
+        """
+        try:
+            from ..utils.geo_utils import GeoUtils
+            return GeoUtils.calculate_network_area_ha(G)
+        except Exception as e:
+            logger.warning(f"面積計算エラー: {e}")
+            return 100.0  # デフォルト値
 
     def export_network(self, G: nx.MultiDiGraph, filepath: str,
                       format_type: str = "graphml") -> bool:
@@ -336,46 +495,24 @@ class NetworkManager:
             logger.error(f"ネットワーク出力エラー: {e}")
             return False
 
-    def calculate_network_stats(self, G: nx.MultiDiGraph) -> dict[str, Any]:
-        """ネットワークの基本統計を計算"""
-        try:
-            stats = {}
+    def get_network_stats(self, G: nx.MultiDiGraph) -> dict:
+        """
+        ネットワーク統計情報を取得（既存コードとの互換性）
 
-            # 基本情報
-            stats['node_count'] = len(G.nodes)
-            stats['edge_count'] = len(G.edges)
+        Parameters
+        ----------
+        G : nx.MultiDiGraph
+            ネットワーク
 
-            if len(G.nodes) == 0:
-                return stats
-
-            # 次数統計
-            degrees = dict(G.degree())
-            stats['avg_degree'] = np.mean(list(degrees.values()))
-            stats['max_degree'] = max(degrees.values())
-            stats['min_degree'] = min(degrees.values())
-
-            # 連結性
-            if nx.is_connected(G.to_undirected()):
-                stats['is_connected'] = True
-                stats['connectivity_ratio'] = 1.0
-            else:
-                # 最大連結成分
-                largest_cc = max(nx.weakly_connected_components(G), key=len)
-                stats['is_connected'] = False
-                stats['largest_component_size'] = len(largest_cc)
-                stats['connectivity_ratio'] = len(largest_cc) / len(G.nodes)
-
-            # 密度
-            stats['density'] = nx.density(G)
-
-            logger.info(f"ネットワーク統計計算完了: {stats['node_count']} ノード")
-            return stats
-
-        except Exception as e:
-            logger.error(f"ネットワーク統計計算エラー: {e}")
-            return {'error': str(e)}
+        Returns
+        -------
+        dict
+            統計情報
+        """
+        return self.calculate_network_stats(G)
 
 
+# 便利関数（既存コードとの互換性維持）
 def create_bbox_from_center(lat: float, lon: float,
                            distance_km: float = 1.0) -> tuple[float, float, float, float]:
     """

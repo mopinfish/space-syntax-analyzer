@@ -1,0 +1,36 @@
+{
+  "analysis_settings": {
+    "radius_meters": 800,
+    "network_type": "drive",
+    "include_analysis": [
+      "basic",
+      "axial",
+      "integration"
+    ],
+    "save_graphml": true,
+    "save_visualization": true,
+    "background_map": true
+  },
+  "output_directory": "station_analysis_output",
+  "stations": [
+    {
+      "id": "shinjuku",
+      "name": "新宿駅",
+      "location": "Shinjuku Station, Tokyo, Japan",
+      "coordinates": null,
+      "graphml_path": null,
+      "description": "日本最大のターミナル駅"
+    },
+    {
+      "id": "kiyosumishirakawa",
+      "name": "清澄白河駅",
+      "location": "Kiyosumishirakawa Station, Tokyo, Japan",
+      "coordinates": [
+	35.6825313683034,
+	139.7986919693165
+      ],
+      "graphml_path": null,
+      "description": "おしゃれなカフェが多い"
+    }
+  ]
+}

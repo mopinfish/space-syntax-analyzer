@@ -11,8 +11,8 @@ def test_imports_without_external_deps():
     """外部依存関係なしでのインポートテスト"""
     # 外部ライブラリをモック化
     mock_modules = [
-        'shapely', 'shapely.geometry', 'osmnx', 'geopandas',
-        'matplotlib', 'matplotlib.pyplot', 'pandas'
+        "shapely", "shapely.geometry", "osmnx", "geopandas",
+        "matplotlib", "matplotlib.pyplot", "pandas"
     ]
 
     for module_name in mock_modules:
@@ -49,9 +49,9 @@ def test_imports_without_external_deps():
         # Space Syntax指標のテスト
         space_syntax_results = metrics_calc._calculate_space_syntax_indices(graph)
 
-        alpha = space_syntax_results['alpha_index']
-        beta = space_syntax_results['beta_index']
-        gamma = space_syntax_results['gamma_index']
+        alpha = space_syntax_results["alpha_index"]
+        beta = space_syntax_results["beta_index"]
+        gamma = space_syntax_results["gamma_index"]
 
         print(f"  α指数: {alpha:.2f}%")
         print(f"  β指数: {beta:.2f}")
@@ -65,14 +65,14 @@ def test_imports_without_external_deps():
         print("\n  追加テスト: 線形グラフ")
         linear_graph = nx.path_graph(4)  # 1-2-3-4の線形グラフ
         for i, node in enumerate(linear_graph.nodes()):
-            linear_graph.nodes[node]['x'] = i
-            linear_graph.nodes[node]['y'] = 0
+            linear_graph.nodes[node]["x"] = i
+            linear_graph.nodes[node]["y"] = 0
 
         print(f"  線形グラフ: ノード={linear_graph.number_of_nodes()}, エッジ={linear_graph.number_of_edges()}")
 
         linear_results = metrics_calc._calculate_space_syntax_indices(linear_graph)
-        alpha_linear = linear_results['alpha_index']
-        beta_linear = linear_results['beta_index']
+        alpha_linear = linear_results["alpha_index"]
+        beta_linear = linear_results["beta_index"]
 
         print(f"  線形グラフ α: {alpha_linear} (期待値: 0)")
         print(f"  線形グラフ β: {beta_linear:.2f} (期待値: {linear_graph.number_of_edges()/linear_graph.number_of_nodes():.2f})")
@@ -109,16 +109,16 @@ def test_basic_network_analysis():
 
         # 座標追加
         for i, node in enumerate(G.nodes()):
-            G.nodes[node]['x'] = i
-            G.nodes[node]['y'] = 0
+            G.nodes[node]["x"] = i
+            G.nodes[node]["y"] = 0
 
         metrics_calc = SpaceSyntaxMetrics()
         results = metrics_calc.calculate_all_metrics(G)
 
         # 基本チェック
-        assert results['node_count'] == 5
-        assert results['edge_count'] == 5
-        assert results['alpha_index'] > 0  # 環状なので回路がある
+        assert results["node_count"] == 5
+        assert results["edge_count"] == 5
+        assert results["alpha_index"] > 0  # 環状なので回路がある
 
         print("✅ 基本ネットワーク分析テスト完了")
 
