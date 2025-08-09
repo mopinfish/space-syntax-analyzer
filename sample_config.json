@@ -1,0 +1,77 @@
+{
+  "analysis_settings": {
+    "radius_meters": 800,
+    "network_type": "drive",
+    "include_analysis": ["basic", "axial", "integration"],
+    "save_graphml": true,
+    "save_visualization": true,
+    "background_map": true
+  },
+  "output_directory": "station_analysis_output",
+  "stations": [
+    {
+      "id": "shinjuku",
+      "name": "新宿駅",
+      "location": "Shinjuku Station, Tokyo, Japan",
+      "coordinates": null,
+      "graphml_path": null,
+      "description": "日本最大のターミナル駅。1日の乗降客数が世界最多を記録する巨大駅"
+    },
+    {
+      "id": "shibuya",
+      "name": "渋谷駅",
+      "location": "Shibuya Station, Tokyo, Japan",
+      "coordinates": [35.658, 139.7016],
+      "graphml_path": null,
+      "description": "若者文化の発信地。スクランブル交差点で有名な繁華街の中心駅"
+    },
+    {
+      "id": "tokyo",
+      "name": "東京駅",
+      "location": "Tokyo Station, Tokyo, Japan",
+      "coordinates": null,
+      "graphml_path": "data/tokyo_station_network.graphml",
+      "description": "日本の鉄道網の中心。新幹線と在来線が集結するターミナル駅"
+    },
+    {
+      "id": "matsumoto",
+      "name": "松本駅",
+      "location": "Matsumoto Station, Nagano, Japan",
+      "coordinates": [36.2408, 137.9677],
+      "graphml_path": null,
+      "description": "松本城の最寄り駅。信州の文化・観光の玄関口"
+    },
+    {
+      "id": "nagano",
+      "name": "長野駅",
+      "location": "Nagano Station, Nagano, Japan",
+      "coordinates": [36.6432, 138.1891],
+      "graphml_path": null,
+      "description": "善光寺の門前町。長野県の県庁所在地の中心駅"
+    },
+    {
+      "id": "ueda",
+      "name": "上田駅",
+      "location": "Ueda Station, Ueda, Nagano, Japan",
+      "coordinates": [36.3984, 138.2489],
+      "graphml_path": null,
+      "description": "真田氏ゆかりの城下町。上田城跡公園の最寄り駅"
+    },
+    {
+      "id": "kyoto",
+      "name": "京都駅",
+      "location": "Kyoto Station, Kyoto, Japan",
+      "coordinates": [34.9859, 135.7581],
+      "graphml_path": null,
+      "description": "古都京都の玄関口。近代的な駅ビルと伝統的な街並みが共存"
+    },
+    {
+      "id": "osaka",
+      "name": "大阪駅",
+      "location": "Osaka Station, Osaka, Japan",
+      "coordinates": [34.7024, 135.4959],
+      "graphml_path": null,
+      "description": "関西の商業中心地。梅田地区の巨大ターミナル駅"
+    }
+  ]
+}
