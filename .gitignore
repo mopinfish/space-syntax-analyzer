@@ -71,3 +71,6 @@ images/
 *.graphml
 output/
 demo_output/
+
+# temporary files
+source.txt

@@ -1014,18 +1014,311 @@ def create_comprehensive_dashboard_jp(results, location_jp, output_dir, base_fil
 
 
 def try_visualization(analyzer, results, location, analysis_type):
-    """改善された可視化の試行"""
+    """改善された可視化の試行（ネットワークグラフ保存機能付き）"""
     try:
         print(f"   📈 可視化生成中...")
         
         # 包括的チャートセットを作成
         create_comprehensive_charts(results, location)
         
+        # ネットワークグラフの保存を追加
+        save_network_graphs(analyzer, results, location, analysis_type)
+        
         print(f"   📈 可視化完了")
         
     except Exception as e:
         logger.warning(f"可視化エラー: {e}")
         print(f"   ⚠️ 可視化をスキップしました")
+
+
+def save_network_graphs(analyzer, results, location, analysis_type):
+    """ネットワークグラフの保存（軸線分析結果と背景地図も含む）"""
+    try:
+        output_dir = Path("demo_output")
+        output_dir.mkdir(exist_ok=True)
+        
+        city_jp = CITY_NAMES_JP.get(location, location)
+        base_filename = f"network_{location.replace(',', '_').replace(' ', '_')}"
+        
+        print(f"   🗺️ ネットワークグラフ保存中 ({city_jp})...")
+        
+        # ネットワークデータの取得
+        network_result = analyzer.get_network(location, "both")
+        
+        if isinstance(network_result, tuple) and len(network_result) == 2:
+            major_net, full_net = network_result
+        elif network_result is not None:
+            major_net = network_result
+            full_net = None
+        else:
+            print(f"   ⚠️ ネットワークデータが取得できませんでした")
+            return
+        
+        # 可視化器の初期化
+        if not hasattr(analyzer, 'visualizer'):
+            from space_syntax_analyzer.core.visualization import NetworkVisualizer
+            visualizer = NetworkVisualizer()
+        else:
+            visualizer = analyzer.visualizer
+        
+        # 背景地図の利用可能性を確認
+        basemap_available = visualizer.contextily_available and visualizer.geopandas_available
+        if basemap_available:
+            print(f"   🌍 背景地図機能が利用可能です")
+        else:
+            print(f"   ⚠️ 背景地図機能が利用できません（contextily または geopandas が未インストール）")
+        
+        # 1. 主要道路ネットワークの保存（背景地図付き）
+        if major_net and major_net.number_of_nodes() > 0:
+            major_path = output_dir / f"{base_filename}_major_network.png"
+            success = visualizer.save_network_graph(
+                major_net,
+                str(major_path),
+                title=f"{city_jp} - 主要道路ネットワーク",
+                network_type="major",
+                node_color="red",
+                edge_color="darkred",
+                edge_width=1.5,
+                show_basemap=basemap_available,
+                basemap_alpha=0.6
+            )
+            if success:
+                print(f"   ✅ 主要道路ネットワーク: {major_path.name}")
+        
+        # 2. 全道路ネットワークの保存（背景地図付き）
+        if full_net and full_net.number_of_nodes() > 0:
+            full_path = output_dir / f"{base_filename}_full_network.png"
+            success = visualizer.save_network_graph(
+                full_net,
+                str(full_path),
+                title=f"{city_jp} - 全道路ネットワーク",
+                network_type="full",
+                node_color="blue",
+                edge_color="navy",
+                edge_width=0.8,
+                node_size_range=(10, 50),
+                show_basemap=basemap_available,
+                basemap_alpha=0.6
+            )
+            if success:
+                print(f"   ✅ 全道路ネットワーク: {full_path.name}")
+        
+        # 3. 比較図の保存
+        if (major_net and major_net.number_of_nodes() > 0 and 
+            full_net and full_net.number_of_nodes() > 0):
+            comparison_path = output_dir / f"{base_filename}_comparison.png"
+            success = visualizer.save_network_comparison(
+                major_net,
+                full_net,
+                str(comparison_path),
+                title=f"{city_jp} - 道路ネットワーク比較"
+            )
+            if success:
+                print(f"   ✅ ネットワーク比較図: {comparison_path.name}")
+        
+        # 4. 分析結果付きネットワーク図の保存
+        if major_net and major_net.number_of_nodes() > 0:
+            metrics_path = output_dir / f"{base_filename}_with_metrics.png"
+            success = visualizer.save_network_with_metrics(
+                major_net,
+                results,
+                str(metrics_path),
+                title=f"{city_jp} - ネットワーク分析結果"
+            )
+            if success:
+                print(f"   ✅ 分析結果付きネットワーク: {metrics_path.name}")
+        
+        # 5. 軸線分析結果の保存（背景地図付き）
+        save_axial_analysis_graphs(visualizer, results, location, output_dir, base_filename, basemap_available)
+        
+    except Exception as e:
+        logger.warning(f"ネットワークグラフ保存エラー: {e}")
+        print(f"   ⚠️ ネットワークグラフ保存をスキップしました")
+
+
+def save_axial_analysis_graphs(visualizer, results, location, output_dir, base_filename, basemap_available):
+    """軸線分析結果の保存（背景地図付き）"""
+    try:
+        city_jp = CITY_NAMES_JP.get(location, location)
+        
+        # 軸線分析結果の取得
+        axial_analysis = results.get('axial_analysis', {})
+        
+        if not axial_analysis or axial_analysis.get('error'):
+            print(f"   ⚠️ 軸線分析結果がありません ({city_jp})")
+            return
+        
+        print(f"   🔄 軸線分析図保存中 ({city_jp})...")
+        
+        # 軸線マップの確認
+        axial_map = axial_analysis.get("axial_map")
+        if not axial_map or axial_map.number_of_nodes() == 0:
+            print(f"   ⚠️ 軸線マップデータがありません ({city_jp})")
+            return
+        
+        # 1. 包括的軸線分析図
+        comprehensive_axial_path = output_dir / f"{base_filename}_axial_analysis.png"
+        success = visualizer.save_axial_analysis(
+            axial_analysis,
+            str(comprehensive_axial_path),
+            title=f"{city_jp} - 軸線分析結果"
+        )
+        if success:
+            print(f"   ✅ 軸線分析結果: {comprehensive_axial_path.name}")
+        
+        # 2. 軸線マップのみ（Integration値による色分け + 背景地図）
+        axial_map_path = output_dir / f"{base_filename}_axial_map.png"
+        success = visualizer.save_axial_lines_only(
+            axial_analysis,
+            str(axial_map_path),
+            title=f"{city_jp} - 軸線マップ",
+            show_integration=True,
+            show_basemap=basemap_available,
+            basemap_alpha=0.6
+        )
+        if success:
+            basemap_text = " (背景地図付き)" if basemap_available else ""
+            print(f"   ✅ 軸線マップ (Integration値){basemap_text}: {axial_map_path.name}")
+        
+        # 3. シンプルな軸線マップ（色分けなし + 背景地図）
+        simple_axial_path = output_dir / f"{base_filename}_axial_simple.png"
+        success = visualizer.save_axial_lines_only(
+            axial_analysis,
+            str(simple_axial_path),
+            title=f"{city_jp} - 軸線構造",
+            show_integration=False,
+            show_basemap=basemap_available,
+            basemap_alpha=0.6
+        )
+        if success:
+            basemap_text = " (背景地図付き)" if basemap_available else ""
+            print(f"   ✅ 軸線構造図{basemap_text}: {simple_axial_path.name}")
+            
+        # 統計情報の表示
+        integration_stats = axial_analysis.get('integration_statistics', {})
+        network_metrics = axial_analysis.get('network_metrics', {})
+        
+        if integration_stats:
+            mean_int = integration_stats.get('mean', 0)
+            std_int = integration_stats.get('std', 0)
+            print(f"   📊 軸線統計 - 平均統合値: {mean_int:.3f}, 標準偏差: {std_int:.3f}")
+        
+        if network_metrics:
+            axial_lines = network_metrics.get('axial_lines', 0)
+            axial_connections = network_metrics.get('axial_connections', 0)
+            print(f"   📊 軸線数: {axial_lines}, 接続数: {axial_connections}")
+        
+    except Exception as e:
+        logger.warning(f"軸線分析図保存エラー: {e}")
+        print(f"   ⚠️ 軸線分析図保存をスキップしました")
+
+
+def main():
+    """メイン関数"""
+    print("🌟 最適化版拡張 Space Syntax Analyzer デモンストレーション")
+    print("="*80)
+    
+    # 拡張機能依存関係チェック
+    print("🔍 拡張機能依存関係チェック中...")
+    
+    # 必須ライブラリのチェック
+    required_libs = ["osmnx", "networkx", "pandas", "matplotlib", "numpy", "scipy", "shapely"]
+    optional_libs = ["geopandas", "scikit-learn", "plotly", "folium"]
+    visualization_libs = ["contextily", "geopandas"]  # 背景地図用ライブラリ
+    
+    missing_required = []
+    missing_optional = []
+    missing_visualization = []
+    
+    for lib in required_libs:
+        try:
+            __import__(lib)
+            print(f"   ✅ {lib}")
+        except ImportError:
+            print(f"   ❌ {lib}")
+            missing_required.append(lib)
+    
+    for lib in optional_libs:
+        try:
+            __import__(lib)
+            print(f"   ✅ {lib} (オプション)")
+        except ImportError:
+            print(f"   ⚠️ {lib} (オプション・未インストール)")
+            missing_optional.append(lib)
+    
+    for lib in visualization_libs:
+        try:
+            __import__(lib)
+            print(f"   ✅ {lib} (背景地図用)")
+        except ImportError:
+            print(f"   ⚠️ {lib} (背景地図用・未インストール)")
+            missing_visualization.append(lib)
+    
+    if missing_required:
+        print(f"\n❌ 必須ライブラリが不足: {', '.join(missing_required)}")
+        print("インストール: uv add " + " ".join(missing_required))
+        return
+    
+    if missing_optional:
+        print(f"\n⚠️ オプション機能制限: {', '.join(missing_optional)}")
+        print("フル機能使用には: uv add " + " ".join(missing_optional))
+    
+    if missing_visualization:
+        print(f"\n🗺️ 背景地図機能制限: {', '.join(missing_visualization)}")
+        print("背景地図表示には: uv add " + " ".join(missing_visualization))
+        print("（背景地図なしでも分析は実行できます）")
+    else:
+        print("✅ 背景地図機能が利用可能です")
+    
+    print("✅ 最適化拡張機能の実行が可能です")
+    
+    # 日本語フォント状況の表示
+    if JAPANESE_FONT_AVAILABLE:
+        print("✅ 日本語チャート生成が可能です")
+    else:
+        print("⚠️ 日本語フォント未対応 - 英語チャートで代替します")
+    
+    # 出力ディレクトリの作成
+    output_dir = Path("demo_output")
+    output_dir.mkdir(exist_ok=True)
+    print(f"📁 出力ディレクトリ: {output_dir.absolute()}")
+    
+    # デモ選択メニュー
+    print("\n📋 利用可能なデモ:")
+    print("   1: 最適化包括分析デモ（推奨）")
+    print("   2: 軸線分析単体デモ")
+    print("   3: 基本機能デモ")
+    print("   a: 全デモ実行")
+    
+    try:
+        choice = input("\n選択してください (1-3, a, q=終了): ").strip().lower()
+        
+        if choice == 'q':
+            print("👋 デモを終了します")
+            return
+        elif choice == '1':
+            demo_enhanced_comprehensive_analysis()
+        elif choice == '2':
+            demo_axial_analysis_only()
+        elif choice == '3':
+            demo_basic_analysis_fallback()
+        elif choice == 'a':
+            print("📋 全デモ実行:")
+            demo_enhanced_comprehensive_analysis()
+            demo_axial_analysis_only()
+            demo_basic_analysis_fallback()
+        else:
+            print("❌ 無効な選択です")
+            return
+        
+    except KeyboardInterrupt:
+        print("\n👋 ユーザーによって中断されました")
+    except Exception as e:
+        logger.error(f"メイン実行エラー: {e}")
+        print(f"❌ 予期しないエラー: {e}")
+    
+    print(f"\n📁 結果ファイルは {output_dir.absolute()} に保存されています")
+    print(f"💡 問題が発生した場合は、ログを確認するか座標指定での分析をお試しください")
 
 
 def generate_comparative_report(successful_analyses):

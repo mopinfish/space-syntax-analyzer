@@ -14,7 +14,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "networkx>=3.0",
-    "numpy>=1.24.0", 
+    "numpy>=1.24.0",
     "scipy>=1.10.0",
     "pandas>=2.0.0",
     "matplotlib>=3.7.0",
@@ -24,8 +24,9 @@ dependencies = [
     "fiona>=1.10.1",
     "pyproj>=3.6.1",
     "scikit-learn>=1.3.0",
-    "rtree>=1.0.0",
-    "japanize-matplotlib>=1.1.3"  # この行を追加
+    "rtree>=1.0.0", # この行を追加
+    "japanize-matplotlib>=1.1.3",
+    "contextily>=1.6.2",
 ]
 keywords = [
     "space syntax",
