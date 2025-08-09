@@ -1,467 +1,378 @@
+# space_syntax_analyzer/core/visualization.py (Ruffエラー修正版)
+
 """
-可視化モジュール - NetworkVisualizer
+ネットワーク可視化モジュール
 
-ネットワークと分析結果の可視化機能を提供します。
+Space Syntax分析結果の効果的な可視化機能を提供
 """
 
-from __future__ import annotations
-
+# 標準インポート
 import logging
 from typing import Any
 
-import matplotlib.pyplot as plt
+# matplotlib設定とインポート
+import matplotlib
+
+# サードパーティインポート
 import networkx as nx
 import pandas as pd
+
+matplotlib.use("Agg")  # GUIなしバックエンドを設定
+import matplotlib.pyplot as plt
+
+# 日本語フォント設定
+try:
+    import japanize_matplotlib  # noqa: F401
+
+    # japanize_matplotlibは副作用（日本語フォント設定）のためのインポート
+    JAPANESE_FONT_AVAILABLE = True
+    print("✅ 日本語フォント設定完了")
+except ImportError:
+    # フォールバック：英語フォント
+    plt.rcParams["font.family"] = ["DejaVu Sans"]
+    JAPANESE_FONT_AVAILABLE = False
+    print("⚠️ 日本語フォントが利用できません。英語フォントを使用します。")
+
+plt.rcParams["axes.unicode_minus"] = False
 
 logger = logging.getLogger(__name__)
 
 
 class NetworkVisualizer:
-    """ネットワーク可視化を行うクラス"""
+    """ネットワーク可視化クラス"""
 
-    def __init__(self) -> None:
-        """NetworkVisualizerを初期化"""
-        # matplotlib日本語フォント設定
-        plt.rcParams["font.family"] = [
-            "DejaVu Sans",
-            "Hiragino Sans",
-            "Yu Gothic",
-            "Meiryo",
-            "Takao",
-            "IPAexGothic",
-            "IPAPGothic",
-            "VL PGothic",
-            "Noto Sans CJK JP",
-        ]
+    def __init__(self):
+        """可視化器を初期化"""
+        self.japanese_available = JAPANESE_FONT_AVAILABLE
+        logger.info("NetworkVisualizer初期化完了")
 
-    def plot_network_comparison(
-        self,
-        major_network: nx.Graph,
-        full_network: nx.Graph | None = None,
-        results: dict[str, Any] | None = None,
-        save_path: str | None = None,
-    ) -> None:
+    def plot_network_overview(self,
+                             major_network: nx.MultiDiGraph,
+                             full_network: nx.MultiDiGraph | None = None,
+                             results: dict[str, Any] | None = None,
+                             title: str = "道路ネットワーク概要",
+                             save_path: str | None = None) -> None:
         """
-        主要道路と全道路ネットワークの比較表示
+        ネットワーク概要の可視化
 
         Args:
             major_network: 主要道路ネットワーク
-            full_network: 全道路ネットワーク
-            results: 分析結果
-            save_path: 保存パス
-        """
-        if full_network is None:
-            self._plot_single_network(major_network, "主要道路ネットワーク", save_path)
-            return
-
-        # 2つのネットワークを並べて表示
-        fig, axes = plt.subplots(1, 2, figsize=(16, 8))
-        fig.suptitle("道路ネットワーク比較", fontsize=16, fontweight="bold")
-
-        # 主要道路ネットワーク
-        self._plot_network_on_axis(
-            major_network, axes[0], "主要道路ネットワーク (>4m)", "blue"
-        )
-
-        # 全道路ネットワーク
-        self._plot_network_on_axis(full_network, axes[1], "全道路ネットワーク", "red")
-
-        # 分析結果がある場合はテキストとして表示
-        if results:
-            self._add_metrics_text(fig, results)
-
-        plt.tight_layout()
-
-        if save_path:
-            plt.savefig(save_path, dpi=300, bbox_inches="tight")
-
-        plt.show()
-
-    def _plot_single_network(
-        self, graph: nx.Graph, title: str, save_path: str | None = None
-    ) -> None:
-        """単一ネットワークの表示"""
-        fig, ax = plt.subplots(1, 1, figsize=(12, 12))
-
-        self._plot_network_on_axis(graph, ax, title, "blue")
-
-        if save_path:
-            plt.savefig(save_path, dpi=300, bbox_inches="tight")
-
-        plt.show()
-
-    def _plot_network_on_axis(
-        self, graph: nx.Graph, ax: plt.Axes, title: str, color: str = "blue"
-    ) -> None:
-        """指定されたaxesにネットワークを描画"""
-        try:
-            if graph.number_of_nodes() == 0:
-                ax.text(
-                    0.5,
-                    0.5,
-                    "ネットワークデータなし",
-                    transform=ax.transAxes,
-                    ha="center",
-                    va="center",
-                )
-                ax.set_title(title)
-                return
-
-            # ノードとエッジの座標を取得
-            pos = {}
-            for node, data in graph.nodes(data=True):
-                if "x" in data and "y" in data:
-                    pos[node] = (data["x"], data["y"])
-
-            if not pos:
-                ax.text(
-                    0.5,
-                    0.5,
-                    "座標データなし",
-                    transform=ax.transAxes,
-                    ha="center",
-                    va="center",
-                )
-                ax.set_title(title)
-                return
-
-            # ネットワーク描画
-            nx.draw_networkx_edges(
-                graph, pos, ax=ax, edge_color=color, width=0.8, alpha=0.7
-            )
-
-            # 交差点（次数3以上）を強調表示
-            intersections = [node for node, degree in graph.degree() if degree >= 3]
-            if intersections:
-                intersection_pos = {
-                    node: pos[node] for node in intersections if node in pos
-                }
-                nx.draw_networkx_nodes(
-                    graph.subgraph(intersections),
-                    intersection_pos,
-                    ax=ax,
-                    node_color="red",
-                    node_size=30,
-                    alpha=0.8,
-                )
-
-            # 端点を表示
-            endpoints = [node for node, degree in graph.degree() if degree == 1]
-            if endpoints:
-                endpoint_pos = {node: pos[node] for node in endpoints if node in pos}
-                nx.draw_networkx_nodes(
-                    graph.subgraph(endpoints),
-                    endpoint_pos,
-                    ax=ax,
-                    node_color="orange",
-                    node_size=20,
-                    alpha=0.8,
-                )
-
-            ax.set_title(title, fontsize=12, fontweight="bold")
-            ax.set_aspect("equal")
-            ax.axis("off")
-
-        except Exception as e:
-            logger.error(f"ネットワーク描画エラー: {e}")
-            ax.text(
-                0.5,
-                0.5,
-                f"描画エラー: {str(e)}",
-                transform=ax.transAxes,
-                ha="center",
-                va="center",
-            )
-            ax.set_title(title)
-
-    def _add_metrics_text(self, fig: plt.Figure, results: dict[str, Any]) -> None:
-        """分析結果をテキストとして図に追加"""
-        text_lines = []
-
-        for network_type, metrics in results.items():
-            network_name = "主要道路" if network_type == "major_network" else "全道路"
-            text_lines.append(f"【{network_name}】")
-            text_lines.append(f"ノード数: {metrics.get('nodes', 0)}")
-            text_lines.append(f"エッジ数: {metrics.get('edges', 0)}")
-            text_lines.append(f"α指数: {metrics.get('alpha_index', 0):.1f}%")
-            text_lines.append(f"β指数: {metrics.get('beta_index', 0):.2f}")
-            text_lines.append(f"迂回率: {metrics.get('avg_circuity', 0):.2f}")
-            text_lines.append("")
-
-        # テキストボックスとして表示
-        textstr = "\n".join(text_lines)
-        fig.text(
-            0.02,
-            0.98,
-            textstr,
-            transform=fig.transFigure,
-            fontsize=10,
-            verticalalignment="top",
-            bbox={"boxstyle": "round", "facecolor": "wheat", "alpha": 0.8},
-        )
-
-    def plot_metrics_comparison(
-        self, results: dict[str, Any], save_path: str | None = None
-    ) -> None:
-        """
-        指標の比較チャートを作成
-
-        Args:
-            results: 分析結果
-            save_path: 保存パス
-        """
-        if len(results) < 2:
-            logger.warning("比較するネットワークが不足しています")
-            return
-
-        # 指標データの準備
-        metrics_df = pd.DataFrame(results).T
-
-        # レーダーチャート用のデータ準備
-        radar_metrics = [
-            "alpha_index",
-            "beta_index",
-            "gamma_index",
-            "road_density",
-            "intersection_density",
-        ]
-
-        available_metrics = [m for m in radar_metrics if m in metrics_df.columns]
-
-        if not available_metrics:
-            logger.warning("表示可能な指標がありません")
-            return
-
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 6))
-
-        # 棒グラフ
-        metrics_df[available_metrics].plot(kind="bar", ax=ax1)
-        ax1.set_title("指標比較（棒グラフ）", fontsize=12, fontweight="bold")
-        ax1.set_ylabel("指標値")
-        ax1.legend()
-        ax1.tick_params(axis="x", rotation=45)
-
-        # テーブル表示
-        ax2.axis("off")
-        table_data = []
-        for metric in available_metrics:
-            row = [metric]
-            for network_type in results:
-                value = results[network_type].get(metric, 0)
-                if isinstance(value, float):
-                    row.append(f"{value:.2f}")
-                else:
-                    row.append(str(value))
-            table_data.append(row)
-
-        headers = ["指標"] + list(results.keys())
-        table = ax2.table(
-            cellText=table_data, colLabels=headers, cellLoc="center", loc="center"
-        )
-        table.auto_set_font_size(False)
-        table.set_fontsize(10)
-        table.scale(1.2, 1.5)
-        ax2.set_title("指標一覧", fontsize=12, fontweight="bold")
-
-        plt.tight_layout()
-
-        if save_path:
-            plt.savefig(save_path, dpi=300, bbox_inches="tight")
-
-        plt.show()
-
-    def plot_network_statistics(
-        self,
-        graph: nx.Graph,
-        title: str = "ネットワーク統計",
-        save_path: str | None = None,
-    ) -> None:
-        """
-        ネットワークの基本統計を可視化
-
-        Args:
-            graph: ネットワークグラフ
+            full_network: 全道路ネットワーク（オプション）
+            results: 分析結果（オプション）
             title: グラフタイトル
-            save_path: 保存パス
-        """
-        if graph.number_of_nodes() == 0:
-            logger.warning("空のネットワークです")
-            return
-
-        fig, axes = plt.subplots(2, 2, figsize=(12, 10))
-        fig.suptitle(title, fontsize=16, fontweight="bold")
-
-        # 次数分布
-        degrees = [degree for node, degree in graph.degree()]
-        axes[0, 0].hist(
-            degrees, bins=max(1, len(set(degrees))), edgecolor="black", alpha=0.7
-        )
-        axes[0, 0].set_title("次数分布")
-        axes[0, 0].set_xlabel("次数")
-        axes[0, 0].set_ylabel("頻度")
-
-        # エッジ長分布
-        edge_lengths = [data.get("length", 0) for _, _, data in graph.edges(data=True)]
-        if edge_lengths:
-            axes[0, 1].hist(edge_lengths, bins=30, edgecolor="black", alpha=0.7)
-            axes[0, 1].set_title("エッジ長分布")
-            axes[0, 1].set_xlabel("長さ (m)")
-            axes[0, 1].set_ylabel("頻度")
-
-        # 連結成分のサイズ分布
-        components = list(nx.connected_components(graph))
-        component_sizes = [len(comp) for comp in components]
-        axes[1, 0].bar(
-            range(len(component_sizes)), sorted(component_sizes, reverse=True)
-        )
-        axes[1, 0].set_title("連結成分サイズ")
-        axes[1, 0].set_xlabel("成分番号")
-        axes[1, 0].set_ylabel("ノード数")
-
-        # 基本統計情報
-        axes[1, 1].axis("off")
-        stats_text = f"""基本統計:
-ノード数: {graph.number_of_nodes()}
-エッジ数: {graph.number_of_edges()}
-連結成分数: {len(components)}
-平均次数: {2 * graph.number_of_edges() / graph.number_of_nodes():.2f}
-密度: {nx.density(graph):.4f}"""
-
-        axes[1, 1].text(
-            0.1,
-            0.9,
-            stats_text,
-            transform=axes[1, 1].transAxes,
-            fontsize=12,
-            verticalalignment="top",
-            bbox={"boxstyle": "round", "facecolor": "lightblue", "alpha": 0.8},
-        )
-
-        plt.tight_layout()
-
-        if save_path:
-            plt.savefig(save_path, dpi=300, bbox_inches="tight")
-
-        plt.show()
-
-    def create_metrics_summary_table(
-        self, results: dict[str, Any], save_path: str | None = None
-    ) -> pd.DataFrame:
-        """
-        指標のサマリーテーブルを作成
-
-        Args:
-            results: 分析結果
-            save_path: 保存パス
-
-        Returns:
-            指標サマリーDataFrame
-        """
-        # データフレーム作成
-        df = pd.DataFrame(results).T
-
-        # 列名を日本語に変換
-        column_mapping = {
-            "nodes": "ノード数",
-            "edges": "エッジ数",
-            "total_length_m": "道路総延長(m)",
-            "area_ha": "面積(ha)",
-            "mu_index": "回路指数(μ)",
-            "mu_per_ha": "平均回路指数(μ/ha)",
-            "alpha_index": "α指数(%)",
-            "beta_index": "β指数",
-            "gamma_index": "γ指数(%)",
-            "avg_shortest_path": "平均最短距離(m)",
-            "road_density": "道路密度(m/ha)",
-            "intersection_density": "交差点密度(n/ha)",
-            "avg_circuity": "平均迂回率",
-        }
-
-        # 存在する列のみ変換
-        existing_columns = {k: v for k, v in column_mapping.items() if k in df.columns}
-        df = df.rename(columns=existing_columns)
-
-        # 数値の丸め
-        for col in df.columns:
-            if df[col].dtype in ["float64", "float32"]:
-                df[col] = df[col].round(2)
-
-        if save_path:
-            df.to_csv(save_path, encoding="utf-8-sig")
-
-        return df
-
-    def plot_metrics_radar_chart(
-        self, results: dict[str, Any], save_path: str | None = None
-    ) -> None:
-        """
-        指標のレーダーチャートを作成
-
-        Args:
-            results: 分析結果
             save_path: 保存パス
         """
         try:
             import numpy as np
 
-            # レーダーチャート用の指標選択
-            radar_metrics = ["alpha_index", "beta_index", "gamma_index"]
-            metric_labels = ["α指数(%)", "β指数", "γ指数(%)"]
+            if self.japanese_available:
+                title_text = title
+                network_labels = ["主要道路", "全道路"] if full_network else ["道路ネットワーク"]
+            else:
+                title_text = "Road Network Overview"
+                network_labels = ["Major Roads", "All Roads"] if full_network else ["Road Network"]
 
-            # データの準備
-            network_types = list(results.keys())
-            values = []
+            fig_width = 16 if full_network else 12
+            fig, axes = plt.subplots(1, 2 if full_network else 1, figsize=(fig_width, 8))
+            fig.suptitle(title_text, fontsize=16, fontweight="bold")
 
-            for network_type in network_types:
-                network_values = []
-                for metric in radar_metrics:
-                    value = results[network_type].get(metric, 0)
-                    # 正規化（0-1の範囲に）
-                    if metric == "alpha_index" or metric == "gamma_index":
-                        normalized_value = value / 100.0  # パーセント値
-                    else:
-                        normalized_value = min(value / 3.0, 1.0)  # β指数は通常3以下
-                    network_values.append(normalized_value)
-                values.append(network_values)
+            # 軸を配列として統一
+            if not isinstance(axes, np.ndarray):
+                axes = [axes]
 
-            # レーダーチャート作成
-            angles = np.linspace(
-                0, 2 * np.pi, len(metric_labels), endpoint=False
-            ).tolist()
-            angles += angles[:1]  # 円を閉じる
+            # 主要ネットワークの描画
+            self._plot_single_network(major_network, axes[0], network_labels[0])
 
-            fig, ax = plt.subplots(figsize=(8, 8), subplot_kw={"projection": "polar"})
+            # 全ネットワークの描画（利用可能な場合）
+            if full_network and len(axes) > 1:
+                self._plot_single_network(full_network, axes[1], network_labels[1])
 
-            colors = ["blue", "red", "green", "orange"]
+            # 分析結果の統計表示
+            if results:
+                self._add_statistics_text(fig, results)
 
-            for i, (network_type, network_values) in enumerate(
-                zip(network_types, values, strict=False)
-            ):
-                network_values += network_values[:1]  # 円を閉じる
-                ax.plot(
-                    angles,
-                    network_values,
-                    "o-",
-                    linewidth=2,
-                    label=network_type,
-                    color=colors[i % len(colors)],
-                )
-                ax.fill(
-                    angles, network_values, alpha=0.25, color=colors[i % len(colors)]
-                )
-
-            ax.set_xticks(angles[:-1])
-            ax.set_xticklabels(metric_labels)
-            ax.set_ylim(0, 1)
-            ax.set_title("指標レーダーチャート", fontsize=14, fontweight="bold", pad=20)
-            ax.legend(loc="upper right", bbox_to_anchor=(1.3, 1.0))
+            plt.tight_layout()
 
             if save_path:
                 plt.savefig(save_path, dpi=300, bbox_inches="tight")
 
             plt.show()
 
-        except ImportError:
-            logger.warning("レーダーチャートの作成にはnumpyが必要です")
         except Exception as e:
-            logger.error(f"レーダーチャート作成エラー: {e}")
+            logger.error(f"ネットワーク概要可視化エラー: {e}")
+            self._create_error_plot(str(e), save_path)
+
+    def _plot_single_network(self, network: nx.MultiDiGraph, ax: plt.Axes,
+                           network_label: str) -> None:
+        """単一ネットワークの描画"""
+        try:
+
+            if network.number_of_nodes() == 0:
+                ax.text(0.5, 0.5, "データなし", ha="center", va="center",
+                       transform=ax.transAxes, fontsize=12)
+                ax.set_title(network_label)
+                return
+
+            # ノード座標の取得
+            pos = {}
+            for node, data in network.nodes(data=True):
+                if "x" in data and "y" in data:
+                    pos[node] = (data["x"], data["y"])
+
+            if not pos:
+                ax.text(0.5, 0.5, "座標データなし", ha="center", va="center",
+                       transform=ax.transAxes, fontsize=12)
+                ax.set_title(network_label)
+                return
+
+            # エッジの描画
+            nx.draw_networkx_edges(
+                network, pos, ax=ax, edge_color="gray", alpha=0.6, width=0.5
+            )
+
+            # ノードの描画（高次数ノードを強調）
+            degrees = dict(network.degree())
+            if degrees:
+                max_degree = max(degrees.values())
+                node_sizes = [30 + (degrees.get(node, 0) / max_degree) * 50
+                             for node in network.nodes()]
+
+                nx.draw_networkx_nodes(
+                    network, pos, ax=ax, node_color="red", node_size=node_sizes,
+                    alpha=0.7
+                )
+
+            ax.set_title(f"{network_label} ({network.number_of_nodes():,}ノード)")
+            ax.set_aspect("equal")
+            ax.axis("off")
+
+        except Exception as e:
+            logger.warning(f"単一ネットワーク描画エラー: {e}")
+            ax.text(0.5, 0.5, f"描画エラー: {str(e)[:50]}...", ha="center", va="center",
+                   transform=ax.transAxes, fontsize=10)
+
+    def _add_statistics_text(self, fig: plt.Figure, results: dict[str, Any]) -> None:
+        """統計情報をテキストで追加"""
+        try:
+            stats_text = self._format_statistics(results)
+            fig.text(0.02, 0.02, stats_text, fontsize=10, fontfamily="monospace",
+                    bbox={"boxstyle": "round,pad=0.5", "facecolor": "lightgray", "alpha": 0.8})
+        except Exception as e:
+            logger.warning(f"統計テキスト追加エラー: {e}")
+
+    def _format_statistics(self, results: dict[str, Any]) -> str:
+        """統計情報のフォーマット"""
+        try:
+            major_network = results.get("major_network", {})
+
+            if self.japanese_available:
+                stats_lines = [
+                    "=== 基本統計 ===",
+                    f"ノード数: {major_network.get('node_count', 0):,}",
+                    f"エッジ数: {major_network.get('edge_count', 0):,}",
+                    f"α指数: {major_network.get('alpha_index', 0):.2f}",
+                    f"γ指数: {major_network.get('gamma_index', 0):.2f}",
+                    f"道路密度: {major_network.get('road_density', 0):.2f} km/km²"
+                ]
+            else:
+                stats_lines = [
+                    "=== Basic Statistics ===",
+                    f"Nodes: {major_network.get('node_count', 0):,}",
+                    f"Edges: {major_network.get('edge_count', 0):,}",
+                    f"Alpha Index: {major_network.get('alpha_index', 0):.2f}",
+                    f"Gamma Index: {major_network.get('gamma_index', 0):.2f}",
+                    f"Road Density: {major_network.get('road_density', 0):.2f} km/km²"
+                ]
+
+            return "\n".join(stats_lines)
+
+        except Exception as e:
+            logger.warning(f"統計フォーマットエラー: {e}")
+            return "統計情報の表示でエラーが発生しました"
+
+    def plot_metrics_comparison(self,
+                              results: dict[str, Any],
+                              title: str = "指標比較",
+                              save_path: str | None = None) -> None:
+        """
+        各種指標の比較可視化
+
+        Args:
+            results: 分析結果
+            title: グラフタイトル
+            save_path: 保存パス
+        """
+        try:
+            if self.japanese_available:
+                title_text = title
+                metric_labels = ["α指数", "β指数", "γ指数", "道路密度"]
+            else:
+                title_text = "Metrics Comparison"
+                metric_labels = ["Alpha Index", "Beta Index", "Gamma Index", "Road Density"]
+
+            fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(12, 10))
+            fig.suptitle(title_text, fontsize=14, fontweight="bold")
+
+            major_network = results.get("major_network", {})
+
+            # 基本指標の棒グラフ
+            indices = [
+                major_network.get("alpha_index", 0),
+                major_network.get("beta_index", 0),
+                major_network.get("gamma_index", 0),
+                major_network.get("road_density", 0)
+            ]
+
+            colors = ["#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4"]
+            ax1.bar(metric_labels, indices, color=colors)
+            ax1.set_title("基本指標" if self.japanese_available else "Basic Metrics")
+            ax1.set_ylabel("値" if self.japanese_available else "Value")
+            ax1.tick_params(axis="x", rotation=45)
+
+            # ネットワーク規模
+            sizes = [
+                major_network.get("node_count", 0),
+                major_network.get("edge_count", 0)
+            ]
+            size_labels = ["ノード", "エッジ"] if self.japanese_available else ["Nodes", "Edges"]
+
+            ax2.bar(size_labels, sizes, color=["#FF9F43", "#10AC84"])
+            ax2.set_title("ネットワーク規模" if self.japanese_available else "Network Size")
+            ax2.set_ylabel("数量" if self.japanese_available else "Count")
+
+            # 効率性指標
+            efficiency_metrics = {
+                ("迂回率" if self.japanese_available else "Circuity"): major_network.get("avg_circuity", 0),
+                ("密度" if self.japanese_available else "Density"): major_network.get("density", 0) * 1000
+            }
+
+            ax3.bar(efficiency_metrics.keys(), efficiency_metrics.values(), color=["#EE5A24", "#0984E3"])
+            ax3.set_title("効率性指標" if self.japanese_available else "Efficiency Metrics")
+            ax3.set_ylabel("値" if self.japanese_available else "Value")
+
+            # 接続性分析
+            connectivity_data = {
+                ("平均次数" if self.japanese_available else "Avg Degree"): major_network.get("avg_degree", 0),
+                ("最大次数" if self.japanese_available else "Max Degree"): major_network.get("max_degree", 0)
+            }
+
+            ax4.bar(connectivity_data.keys(), connectivity_data.values(), color=["#00B894", "#6C5CE7"])
+            ax4.set_title("接続性分析" if self.japanese_available else "Connectivity Analysis")
+            ax4.set_ylabel("次数" if self.japanese_available else "Degree")
+
+            plt.tight_layout()
+
+            if save_path:
+                plt.savefig(save_path, dpi=300, bbox_inches="tight")
+
+            plt.show()
+
+        except Exception as e:
+            logger.error(f"指標比較可視化エラー: {e}")
+            self._create_error_plot(str(e), save_path)
+
+    def _create_error_plot(self, error_message: str, save_path: str | None = None) -> None:
+        """エラー時のフォールバック可視化"""
+        try:
+            fig, ax = plt.subplots(1, 1, figsize=(8, 6))
+
+            error_text = ("可視化エラーが発生しました" if self.japanese_available
+                         else "Visualization Error Occurred")
+            detail_text = f"{error_text}\n{str(error_message)[:100]}..."
+
+            ax.text(0.5, 0.5, detail_text, ha="center", va="center",
+                   transform=ax.transAxes, fontsize=10,
+                   bbox={"boxstyle": "round,pad=0.3", "facecolor": "lightcoral"})
+
+            title_text = ("Space Syntax 分析 - エラー" if self.japanese_available
+                         else "Space Syntax Analysis - Error")
+            ax.set_title(title_text)
+            ax.set_xticks([])
+            ax.set_yticks([])
+
+            if save_path:
+                plt.savefig(save_path, dpi=300, bbox_inches="tight")
+
+            plt.show()
+            plt.close()
+
+        except Exception as nested_e:
+            logger.error(f"フォールバック可視化も失敗: {nested_e}")
+            raise
+
+    def export_results(self, results: dict[str, Any], filepath: str,
+                      format_type: str = "csv") -> bool:
+        """
+        分析結果をファイルに出力
+
+        Args:
+            results: 分析結果
+            filepath: 出力先パス
+            format_type: ファイル形式 ("csv", "excel", "json")
+
+        Returns:
+            出力成功時True
+        """
+        try:
+            logger.info(f"結果出力開始: {filepath} ({format_type})")
+
+            if format_type.lower() == "csv":
+                df = self._results_to_dataframe(results)
+                df.to_csv(filepath, index=False, encoding="utf-8-sig")
+
+            elif format_type.lower() in ["excel", "xlsx"]:
+                df = self._results_to_dataframe(results)
+                df.to_excel(filepath, index=False)
+
+            elif format_type.lower() == "json":
+                import json
+
+                # NetworkXオブジェクトを除去した結果を作成
+                clean_results = {}
+                for key, value in results.items():
+                    if key not in ["major_network", "full_network"] and not isinstance(value, nx.MultiDiGraph):
+                        clean_results[key] = value
+
+                with open(filepath, "w", encoding="utf-8") as f:
+                    json.dump(clean_results, f, ensure_ascii=False, indent=2, default=str)
+
+            else:
+                raise ValueError(f"サポートされていないフォーマット: {format_type}") from None
+
+            logger.info(f"結果出力完了: {filepath}")
+            return True
+
+        except Exception as e:
+            logger.error(f"結果出力エラー: {e}")
+            return False
+
+    def _results_to_dataframe(self, results: dict[str, Any]) -> pd.DataFrame:
+        """分析結果をDataFrameに変換"""
+        data = []
+
+        # メタデータ
+        metadata = results.get("metadata", {})
+
+        for network_type in ["major_network", "full_network"]:
+            if results.get(network_type):
+                network_data = results[network_type]
+                row = {
+                    "network_type": network_type,
+                    "query": metadata.get("query", ""),
+                    "node_count": network_data.get("node_count", 0),
+                    "edge_count": network_data.get("edge_count", 0),
+                    "avg_degree": network_data.get("avg_degree", 0),
+                    "max_degree": network_data.get("max_degree", 0),
+                    "density": network_data.get("density", 0),
+                    "alpha_index": network_data.get("alpha_index", 0),
+                    "beta_index": network_data.get("beta_index", 0),
+                    "gamma_index": network_data.get("gamma_index", 0),
+                    "road_density": network_data.get("road_density", 0),
+                    "avg_circuity": network_data.get("avg_circuity", 0),
+                    "is_connected": network_data.get("is_connected", False),
+                    "largest_component_size": network_data.get("largest_component_size", 0),
+                    "num_components": network_data.get("num_components", 0)
+                }
+                data.append(row)
+
+        return pd.DataFrame(data)

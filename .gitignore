@@ -69,4 +69,5 @@ images/
 *.xlsx
 *.geojson
 *.graphml
-
+output/
+demo_output/

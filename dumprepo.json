@@ -1,0 +1,11 @@
+{
+  "projectStructure": {
+    "include": ["**/*"],
+    "exclude": ["node_modules/**", "dumprepo.json", "cache/**", "build/**", "dist/**", "demo_output/**", "docs/build/**"]
+  },
+  "textFiles": {
+    "include": ["**/*"],
+    "exclude": ["node_modules/**", "dumprepo.json", "*.svg", "package-lock.json", "cache/**", "build/**", "dist/**", "docs/build/**", "demo_output/**"]
+  },
+  "dot": false
+}
