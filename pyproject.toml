@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "space-syntax-analyzer"
-version = "0.2.0"
+version = "0.2.1"
 description = "A comprehensive Python library for space syntax analysis of urban street networks with axial analysis and visibility graph analysis"
 authors = [
     {name = "Space Syntax Analyzer Team", email = "contact@space-syntax-analyzer.org"}
